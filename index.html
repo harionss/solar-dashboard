@@ -248,15 +248,11 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
   </div>
 </div>
 
-<div id="readonlyBanner" style="display:none;background:#eff6ff;border:0.5px solid #93c5fd;border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#1a56db;display:none">
+<div id="readonlyBanner" style="display:none;background:#eff6ff;border:0.5px solid #93c5fd;border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#1a56db">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span><i class="ti ti-eye"></i> <strong>View-only mode</strong> — import a backup to load data, or switch to full mode to edit.</span>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-sm" onclick="document.getElementById('readonlyImportFile').click()"><i class="ti ti-database-import"></i> Import backup</button>
-      <button class="btn btn-sm btn-primary" onclick="toggleReadOnly()"><i class="ti ti-pencil"></i> Full mode</button>
-    </div>
+    <span><i class="ti ti-eye"></i> <strong>View-only mode</strong> — data loaded from GitHub. Switch to full mode to edit.</span>
+    <button class="btn btn-sm btn-primary" onclick="toggleReadOnly()"><i class="ti ti-pencil"></i> Full mode</button>
   </div>
-  <input type="file" id="readonlyImportFile" accept=".json" onchange="importBackup(this)" style="display:none">
 </div>
 <div id="tab-cost" class="section active">
   <div class="card">
@@ -458,10 +454,32 @@ let historyOffset=0,historyMode='week',costOffset=0,logMode='week';
 let quickPendingSheets=[],chartKwhInst=null,chartPesoInst=null,chartRoiInst=null;
 let readOnly=false;
 
+const GITHUB_DATA_URL='https://harionss.github.io/solar-dashboard/data.json';
+
+async function loadFromGitHub(){
+  try{
+    const res=await fetch(GITHUB_DATA_URL+'?t='+Date.now());
+    if(!res.ok)return;
+    const data=await res.json();
+    if(data.db)db=data.db;
+    if(data.monthly)monthly=data.monthly;
+    if(data.touProfiles)touProfiles=data.touProfiles;
+    if(data.settings)settings=data.settings;
+    if(data.billingPeriods)billingPeriods=data.billingPeriods;
+    if(data.manualEntries)manualEntries=data.manualEntries;
+    readOnly=true;
+    renderAll();
+    applyReadOnly();
+  }catch(e){
+    // No data.json yet — start fresh, full mode
+  }
+}
+
 function toggleReadOnly(){
   readOnly=!readOnly;
   applyReadOnly();
 }
+
 function applyReadOnly(){
   const btn=document.getElementById('readonlyToggle');
   const banner=document.getElementById('readonlyBanner');
@@ -473,20 +491,14 @@ function applyReadOnly(){
   banner.style.display=readOnly?'block':'none';
   if(uploadBtn)uploadBtn.style.display=readOnly?'none':'';
   if(uploadTab)uploadTab.style.display=readOnly?'none':'';
-  // Hide manual entry form and add buttons in read-only
   const manualBtn=document.getElementById('manualFormBtn');
   if(manualBtn)manualBtn.style.display=readOnly?'none':'';
   const manualForm=document.getElementById('manualForm');
   if(manualForm)manualForm.style.display='none';
-  // Hide billing add button
   const billingFormToggle=document.querySelector('button[onclick="toggleBillingForm()"]');
   if(billingFormToggle)billingFormToggle.style.display=readOnly?'none':'';
   const billingForm=document.getElementById('billingForm');
   if(billingForm)billingForm.style.display='none';
-  // Hide TOU edit buttons
-  document.querySelectorAll('button[onclick^="editTouRow"]').forEach(b=>b.style.display=readOnly?'none':'');
-  // Hide delete buttons in history
-  document.querySelectorAll('button[onclick^="deleteEntry"]').forEach(b=>b.style.display=readOnly?'none':'');
 }
 
 function updateMonthlyCount(){
@@ -535,8 +547,11 @@ async function loadDB(){
     db.sort((a,b)=>b.date.localeCompare(a.date));
     monthly.sort((a,b)=>b.date.localeCompare(a.date));
   }catch(e){console.error(e);initDefaultTou();}
-  renderAll();
-  setTimeout(()=>showQuickUpload(),600);
+  if(!db.length&&!monthly.length){
+    await loadFromGitHub();
+  } else {
+    renderAll();
+  }
 }
 
 function initDefaultTou(){
@@ -1250,12 +1265,10 @@ function getChartData(){
       consumed=m.consumption;
       grid=m.purchased;
     } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
-      // Only use telemetry if no monthly data exists for this date
-      // Skip monthly-named sheets (e.g. '2026-05') — not daily entries
       consumed=t.avgLoad?+(t.avgLoad*24).toFixed(1):0;
       grid=t.gridImport||0;
     } else {
-      return; // no data at all, skip
+      return;
     }
     const rate=getRateForDate(date);
     let key;
