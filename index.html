@@ -388,14 +388,18 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
 
 <div id="tab-export" class="section">
   <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
-      <div class="section-title" style="margin:0">Sync to GitHub</div>
-    </div>
+    <div class="section-title">Sync to GitHub</div>
     <div class="alert alert-info" style="margin-bottom:1rem">Push your latest data to GitHub so all your other devices stay in sync automatically.</div>
+    <div class="form-group" style="margin-bottom:0.75rem">
+      <label class="form-label">GitHub Personal Access Token</label>
+      <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;max-width:340px;font-family:monospace;font-size:12px">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Stored only in your browser. Generate at GitHub → Settings → Developer settings → Personal access tokens (repo scope).</div>
+    </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="pushGithubBtn" class="btn btn-primary" onclick="pushToGitHub()" style="display:flex;align-items:center;gap:6px"><i class="ti ti-brand-github"></i> Push to GitHub</button>
       <button class="btn" onclick="downloadBackup()"><i class="ti ti-download"></i> Download backup JSON</button>
     </div>
+    <div id="pushStatus" style="display:none;margin-top:0.75rem"></div>
   </div>
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
@@ -467,8 +471,14 @@ let readOnly=false;
 const GITHUB_OWNER='harionss';
 const GITHUB_REPO='solar-dashboard';
 const GITHUB_FILE='data.json';
-const GITHUB_TOKEN='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';
 const GITHUB_DATA_URL='https://harionss.github.io/solar-dashboard/data.json';
+
+function getToken(){
+  const inp=document.getElementById('githubToken');
+  const val=inp?inp.value.trim():'';
+  if(val)localStorage.setItem('gh_token',val);
+  return val||localStorage.getItem('gh_token')||'';
+}
 
 async function loadFromGitHub(){
   try{
@@ -490,44 +500,51 @@ async function loadFromGitHub(){
 }
 
 async function pushToGitHub(){
+  const token=getToken();
+  if(!token){alert('Please enter your GitHub Personal Access Token first.');return;}
   const btn=document.getElementById('pushGithubBtn');
+  const status=document.getElementById('pushStatus');
   btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Pushing...';
+  status.style.display='none';
   try{
     const payload={db,monthly,touProfiles,settings,billingPeriods,manualEntries};
     const content=btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    // Get current SHA
     const shaRes=await fetch('https://api.github.com/repos/'+GITHUB_OWNER+'/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{
-      headers:{'Authorization':'token '+GITHUB_TOKEN,'Accept':'application/vnd.github.v3+json'}
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}
     });
     let sha='';
     if(shaRes.ok){const j=await shaRes.json();sha=j.sha||'';}
-    // Push new content
     const body={message:'Update solar data '+new Date().toISOString().slice(0,10),content};
     if(sha)body.sha=sha;
     const res=await fetch('https://api.github.com/repos/'+GITHUB_OWNER+'/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{
       method:'PUT',
-      headers:{'Authorization':'token '+GITHUB_TOKEN,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+      headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
       body:JSON.stringify(body)
     });
     if(res.ok){
       btn.innerHTML='<i class="ti ti-check"></i> Pushed!';
       btn.style.background='#1baf7a';btn.style.color='#fff';
+      status.style.display='block';status.className='alert alert-success';status.textContent='Data pushed successfully! Other devices will sync on next refresh.';
       setTimeout(()=>{btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';btn.style.background='';btn.style.color='';},3000);
     }else{
       const err=await res.json();
-      alert('Push failed: '+(err.message||res.status));
+      status.style.display='block';status.className='alert alert-danger';status.textContent='Push failed: '+(err.message||res.status)+'. Check your token.';
       btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';
     }
   }catch(e){
-    alert('Push error: '+e.message);
+    status.style.display='block';status.className='alert alert-danger';status.textContent='Push error: '+e.message;
     btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';
   }
 }
 
-function toggleReadOnly(){
-  readOnly=!readOnly;
-  applyReadOnly();
+function downloadBackup(){
+  const payload={db,monthly,touProfiles,settings,billingPeriods,manualEntries};
+  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='data.json';a.click();
 }
+
+function toggleReadOnly(){readOnly=!readOnly;applyReadOnly();}
 
 function applyReadOnly(){
   const btn=document.getElementById('readonlyToggle');
@@ -599,11 +616,8 @@ async function loadDB(){
     db.sort((a,b)=>b.date.localeCompare(a.date));
     monthly.sort((a,b)=>b.date.localeCompare(a.date));
   }catch(e){console.error(e);initDefaultTou();}
-  if(!db.length&&!monthly.length){
-    await loadFromGitHub();
-  } else {
-    renderAll();
-  }
+  renderAll();
+  if(!db.length&&!monthly.length){loadFromGitHub();}
 }
 
 function initDefaultTou(){
@@ -640,13 +654,6 @@ function showTab(t){
   if(t==='export')renderInsights();
 }
 function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();applyReadOnly();}
-
-function downloadBackup(){
-  const payload={db,monthly,touProfiles,settings,billingPeriods,manualEntries};
-  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='data.json';a.click();
-}
 function updateCount(){document.getElementById('entryCount').textContent=db.length+' day'+(db.length!==1?'s':'');}
 function loadSettingsUI(){document.getElementById('solarInvestment').value=settings.investment||'';}
 
