@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Solar Dashboard — DEYE Inverter</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --text-primary:#1a1a1a;--text-secondary:#4a4a4a;--text-muted:#898781;
+  --text-accent:#1a56db;--text-success:#0e6b3f;--text-warning:#92400e;
+  --surface-1:#f9f9f8;--surface-2:#ffffff;
+  --border:#e1e0d9;--border-strong:#c9c7be;--border-accent:#93c5fd;
+  --border-warning:#fcd34d;--border-success:#6ee7b7;
+  --bg-accent:#eff6ff;--bg-success:#ecfdf5;--bg-warning:#fffbeb;
+  --fill-accent:#1a56db;--fill-accent-hover:#1e429f;
+  --on-accent:#ffffff;--radius:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);font-size:14px;color:var(--text-primary);background:var(--surface-1);min-height:100vh}
+.app{max-width:740px;margin:0 auto;padding:1rem}
+.tabs{display:flex;gap:0;border-bottom:0.5px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+.tab{padding:8px 11px;cursor:pointer;border:none;background:none;font-size:12px;color:var(--text-secondary);border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap}
+.tab.active{color:var(--text-accent);border-bottom-color:var(--fill-accent)}
+.section{display:none}.section.active{display:block}
+.card{background:var(--surface-2);border:0.5px solid var(--border);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:1rem}
+.metric{background:var(--surface-1);border-radius:var(--radius);padding:0.75rem 1rem}
+.metric-label{font-size:12px;color:var(--text-muted);margin-bottom:4px}
+.metric-val{font-size:18px;font-weight:500}
+.metric-val.solar{color:#eda100}.metric-val.battery{color:#1baf7a}.metric-val.grid{color:#2a78d6}.metric-val.load{color:#e34948}.metric-val.money{color:#7c3aed}
+.tou-row{display:grid;grid-template-columns:70px 90px 80px 80px auto;gap:8px;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+.tou-row:last-child{border-bottom:none}
+.tou-hdr{color:var(--text-muted);font-size:11px;font-weight:500}
+.badge{display:inline-block;padding:2px 8px;border-radius:var(--radius);font-size:11px}
+.badge-blue{background:var(--bg-accent);color:var(--text-accent)}
+.badge-green{background:var(--bg-success);color:var(--text-success)}
+.badge-warn{background:var(--bg-warning);color:var(--text-warning)}
+.badge-purple{background:#f3e8ff;color:#6b21a8}
+.upload-zone{border:1.5px dashed var(--border-strong);border-radius:12px;padding:1.25rem;text-align:center;cursor:pointer;transition:background 0.15s;margin-bottom:0.75rem}
+.upload-zone:hover{background:var(--surface-1)}
+.upload-zone i{font-size:26px;color:var(--text-muted);display:block;margin-bottom:6px}
+input[type=file]{display:none}
+.btn{padding:7px 14px;border-radius:var(--radius);border:0.5px solid var(--border-strong);background:none;color:var(--text-primary);font-size:13px;cursor:pointer;transition:all 0.15s}
+.btn:hover{background:var(--surface-1)}
+.btn-primary{background:var(--fill-accent);color:var(--on-accent);border-color:transparent}
+.btn-primary:hover{background:var(--fill-accent-hover)}
+.btn-purple{background:#7c3aed;color:#fff;border-color:transparent}
+.btn-purple:hover{background:#6d28d9}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-toggle{padding:5px 12px;border-radius:var(--radius);border:0.5px solid var(--border-strong);background:none;font-size:12px;cursor:pointer;color:var(--text-secondary)}
+.btn-toggle.active{background:var(--fill-accent);color:var(--on-accent);border-color:transparent}
+.entry-row{display:grid;grid-template-columns:95px 1fr 70px;gap:8px;align-items:center;padding:7px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+.entry-row:last-child{border-bottom:none}
+.soc-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.soc-fill{height:100%;border-radius:3px}
+select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6px 8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface-2);color:var(--text-primary);font-size:13px}
+.form-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.75rem}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-label{font-size:12px;color:var(--text-secondary)}
+.alert{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:1rem}
+.alert-info{background:var(--bg-accent);color:var(--text-accent);border:0.5px solid var(--border-accent)}
+.alert-success{background:var(--bg-success);color:var(--text-success)}
+.alert-warn{background:var(--bg-warning);color:var(--text-warning)}
+.day-chart-wrap{position:relative;width:100%;height:200px;margin-top:1rem}
+.chart-wrap{position:relative;width:100%;height:260px;margin-top:0.5rem}
+.section-title{font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.04em}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius);font-size:11px;background:var(--surface-1);border:0.5px solid var(--border);color:var(--text-secondary)}
+.sheet-item{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:var(--radius);border:0.5px solid var(--border);margin-bottom:6px;font-size:13px}
+.sheet-item.exists{border-color:var(--border-warning);background:var(--bg-warning)}
+.sheet-item.new{border-color:var(--border-success);background:var(--bg-success)}
+.sheet-item.skipped{border-color:var(--border);background:var(--surface-1);opacity:0.6}
+.sheet-check{display:flex;align-items:center;gap:6px;cursor:pointer}
+.pager{display:flex;align-items:center;gap:8px}
+.insight-row{display:flex;align-items:flex-start;gap:10px;padding:10px;background:var(--surface-1);border-radius:var(--radius);margin-bottom:8px}
+.copy-area{width:100%;min-height:120px;padding:8px;border:0.5px solid var(--border-strong);border-radius:var(--radius);background:var(--surface-1);font-size:11px;font-family:monospace;color:var(--text-secondary);resize:vertical;margin-top:8px}
+.week-nav{display:flex;align-items:center;gap:6px}
+.roi-bar-wrap{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin:8px 0}
+.roi-bar-fill{height:100%;background:linear-gradient(90deg,#7c3aed,#1baf7a);border-radius:5px;transition:width 0.5s}
+.daily-row{display:grid;grid-template-columns:88px 40px 62px 62px 62px 68px 26px;gap:3px;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px}
+.daily-row:last-child{border-bottom:none}
+.daily-hdr{color:var(--text-muted);font-size:11px;font-weight:500}
+.billing-row{display:grid;grid-template-columns:1fr 70px 80px 80px 70px 26px;gap:6px;align-items:center;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:12px}
+.billing-row:last-child{border-bottom:none}
+.weather-badge{display:inline-block;padding:1px 6px;border-radius:var(--radius);font-size:11px;font-weight:500}
+.weather-sunny{background:#fef9c3;color:#854d0e}
+.weather-cloudy{background:#e0f2fe;color:#0369a1}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:0.75rem}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:var(--surface-2);border-radius:16px;padding:1.5rem;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:0.5rem;font-size:12px}
+.legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px}
+@media(max-width:520px){
+  .upload-grid{grid-template-columns:1fr}
+  .tou-row{grid-template-columns:60px 80px 70px 70px;font-size:12px}
+  .tou-row span:last-child{display:none}
+  .daily-row{grid-template-columns:76px 32px 52px 52px 52px 58px 22px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<div class="modal-overlay" id="quickUploadModal" style="display:none">
+  <div class="modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+      <div style="font-size:16px;font-weight:600">&#128075; Welcome back!</div>
+      <button class="btn btn-sm" onclick="dismissQuickUpload()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:1.25rem">Upload today's DEYE file to keep your data up to date.</div>
+    <div class="upload-zone" onclick="document.getElementById('quickFileInput').click()" style="margin-bottom:1rem">
+      <i class="ti ti-file-spreadsheet"></i>
+      <div style="font-weight:500;font-size:13px;margin-bottom:4px">Tap to select today's DEYE file</div>
+      <div style="font-size:11px;color:var(--text-muted)">PlantsDetails-History .xlsx &middot; multiple files OK</div>
+    </div>
+    <input type="file" id="quickFileInput" accept=".xlsx,.xls" multiple onchange="handleQuickUpload(this)">
+    <div id="quickUploadStatus" style="display:none" class="alert"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="dismissQuickUpload()">Skip for now</button>
+      <button class="btn btn-primary" id="quickSaveBtn" onclick="quickSaveSelected()" style="display:none"><i class="ti ti-check"></i> Save <span id="quickSaveCount"></span></button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-top:0.5rem">
+  <div>
+    <div style="font-size:18px;font-weight:500">Solar dashboard</div>
+    <div style="font-size:12px;color:var(--text-muted)">DEYE inverter &middot; Battery first mode</div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn btn-sm" onclick="showQuickUpload()" title="Quick upload" id="quickUploadBtn"><i class="ti ti-cloud-upload"></i></button>
+    <button class="btn btn-sm" id="readonlyToggle" onclick="toggleReadOnly()" title="Toggle read-only mode" style="font-size:11px"><i class="ti ti-eye"></i> View</button>
+    <div class="tag"><i class="ti ti-bolt"></i><span id="entryCount">0 days</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('cost')"><i class="ti ti-peso-sign"></i> Cost &amp; ROI</button>
+  <button class="tab" onclick="showTab('charts')"><i class="ti ti-chart-bar"></i> Charts</button>
+  <button class="tab" onclick="showTab('history')"><i class="ti ti-database"></i> History</button>
+  <button class="tab" onclick="showTab('tou')"><i class="ti ti-clock"></i> TOU</button>
+  <button class="tab" onclick="showTab('upload')"><i class="ti ti-upload"></i> Upload</button>
+  <button class="tab" onclick="showTab('export')"><i class="ti ti-file-export"></i> Export</button>
+</div>
+
+<div id="tab-upload" class="section">
+  <div class="card">
+    <div class="section-title">Upload DEYE data</div>
+    <div class="upload-grid">
+      <div class="upload-zone" onclick="document.getElementById('fileTelemetry').click()">
+        <i class="ti ti-activity"></i>
+        <div style="font-weight:500;font-size:13px;margin-bottom:2px">5-min telemetry</div>
+        <div style="font-size:11px;color:var(--text-muted)">PlantsDetails-History .xlsx<br>Multiple files OK</div>
+      </div>
+      <div class="upload-zone" onclick="document.getElementById('fileMonthly').click()" style="border-color:var(--border-accent)">
+        <i class="ti ti-calendar-stats"></i>
+        <div style="font-weight:500;font-size:13px;margin-bottom:2px">Monthly summary</div>
+        <div style="font-size:11px;color:var(--text-muted)">Daily totals per month<br>Auto-fills cost log</div>
+      </div>
+    </div>
+    <input type="file" id="fileTelemetry" accept=".xlsx,.xls" onchange="handleTelemetry(this)" multiple>
+    <input type="file" id="fileMonthly" accept=".xlsx,.xls" onchange="handleMonthly(this)" multiple>
+    <div id="parseStatus" style="display:none" class="alert"></div>
+    <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:0.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="font-size:12px;color:var(--text-muted)">Monthly summary data: <span id="monthlyCount">0</span> days stored</div>
+      <button class="btn btn-sm" onclick="clearMonthlyData()" style="color:#e34948;border-color:#e34948"><i class="ti ti-trash"></i> Clear monthly data</button>
+    </div>
+  </div>
+  <div id="batchPreviewCard" class="card" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">Found <span id="sheetCount">0</span> day(s) &mdash; <span id="importSource" style="color:var(--text-accent)"></span></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="toggleAll(true)">All</button>
+        <button class="btn btn-sm" onclick="toggleAll(false)">None</button>
+      </div>
+    </div>
+    <div id="sheetList"></div>
+    <div style="margin-top:1rem;padding-top:0.75rem;border-top:0.5px solid var(--border);display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+      <span id="selectionSummary" style="font-size:12px;color:var(--text-muted)"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="cancelUpload()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSelected()"><i class="ti ti-check"></i> Save</button>
+      </div>
+    </div>
+  </div>
+  <div id="previewCard" class="card" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">Preview &mdash; <span id="previewDate"></span></div>
+      <div class="pager" id="pager" style="display:none">
+        <button class="btn btn-sm" onclick="changePage(-1)"><i class="ti ti-arrow-left"></i></button>
+        <span id="pageIndicator" style="font-size:12px;color:var(--text-muted)"></span>
+        <button class="btn btn-sm" onclick="changePage(1)"><i class="ti ti-arrow-right"></i></button>
+      </div>
+    </div>
+    <div class="metric-grid" id="previewMetrics"></div>
+    <div class="day-chart-wrap"><canvas id="dayChart"></canvas></div>
+  </div>
+</div>
+
+<div id="tab-history" class="section">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">History</div>
+      <div class="week-nav">
+        <button class="btn btn-sm" onclick="changeHistoryPeriod(-1)"><i class="ti ti-arrow-left"></i></button>
+        <span id="historyPeriodLabel" style="font-size:12px;font-weight:500;min-width:175px;text-align:center"></span>
+        <button class="btn btn-sm" onclick="changeHistoryPeriod(1)"><i class="ti ti-arrow-right"></i></button>
+        <button class="btn btn-sm" id="historyTodayBtn" onclick="historyOffset=0;renderHistory()" style="display:none">Today</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:1rem">
+      <button class="btn-toggle active" id="histWeekBtn" onclick="setHistoryMode('week')">Weekly</button>
+      <button class="btn-toggle" id="histMonthBtn" onclick="setHistoryMode('month')">Monthly</button>
+    </div>
+    <div id="historyEmpty" class="alert alert-info">No data yet &mdash; upload your first DEYE file.</div>
+    <div id="historyList" style="display:none">
+      <div class="entry-row"><span style="font-size:11px;color:var(--text-muted)">Date</span><span style="font-size:11px;color:var(--text-muted)">Performance</span><span></span></div>
+      <div id="entryRows"></div>
+    </div>
+    <div id="historyPeriodEmpty" style="display:none" class="alert alert-info">No data for this period.</div>
+  </div>
+  <div id="monthSummaryCard" class="card" style="display:none">
+    <div class="section-title">Overall &mdash; <span id="summaryDays">0</span> days logged</div>
+    <div id="monthSummary"></div>
+  </div>
+</div>
+
+<div id="tab-tou" class="section">
+  <div class="card">
+    <div class="section-title">TOU profile history</div>
+    <div class="alert alert-info" style="margin-bottom:1rem">Log each TOU change with its effective date so the AI can correlate settings to outcomes.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Effective date</label><input type="text" id="touDate" placeholder="2026-06-20" style="width:130px"></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Notes</label><input type="text" id="touNote" placeholder="Raised row 3 SOC floor to 40%"></div>
+      <button class="btn btn-primary" onclick="addTouProfile()" style="height:32px;align-self:flex-end">Add</button>
+    </div>
+    <div id="touProfileList"></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div class="section-title" style="margin:0">Active TOU &mdash; <span id="activeTouDate"></span></div>
+      <span class="badge badge-green">Battery first</span>
+    </div>
+    <div class="tou-row tou-hdr"><span>Start</span><span>Power</span><span>Min SOC</span><span>Grid chg</span><span>Purpose</span></div>
+    <div id="touRows"></div>
+  </div>
+</div>
+
+<div id="readonlyBanner" style="display:none;background:#eff6ff;border:0.5px solid #93c5fd;border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#1a56db">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <span><i class="ti ti-eye"></i> <strong>View-only mode</strong> — data loaded from GitHub. Switch to full mode to edit.</span>
+    <button class="btn btn-sm btn-primary" onclick="toggleReadOnly()"><i class="ti ti-pencil"></i> Full mode</button>
+  </div>
+</div>
+<div id="tab-cost" class="section active">
+  <div class="card">
+    <div class="section-title">Solar investment</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.75rem">Used to track ROI progress. Rates are set per billing period.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Solar investment (&#8369;)</label><input type="number" id="solarInvestment" placeholder="280000" style="width:140px"></div>
+      <button class="btn btn-primary" onclick="saveSettings()" style="height:32px;align-self:flex-end"><i class="ti ti-device-floppy"></i> Save</button>
+    </div>
+    <div id="settingsSaved" style="display:none" class="alert alert-success">Settings saved.</div>
+  </div>
+  <div id="costSummaryCard" class="card" style="display:none">
+    <div class="section-title">Cost summary</div>
+    <div class="metric-grid" id="costMetrics"></div>
+  </div>
+  <div id="roiCard" class="card" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+      <div class="section-title" style="margin:0">ROI tracker</div>
+      <span id="roiBadge" class="badge badge-purple"></span>
+    </div>
+    <div class="roi-bar-wrap"><div class="roi-bar-fill" id="roiBar" style="width:0%"></div></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:0.75rem"><span>&#8369;0</span><span id="roiTarget"></span></div>
+    <div id="roiDetails" style="font-size:13px;line-height:1.9;color:var(--text-secondary)"></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div class="section-title" style="margin:0">Meralco billing periods</div>
+      <button class="btn btn-sm btn-primary" onclick="toggleBillingForm()"><i class="ti ti-plus"></i> Add</button>
+    </div>
+    <div id="billingForm" style="display:none;margin-bottom:1rem;padding:0.75rem;background:var(--surface-1);border-radius:var(--radius)">
+      <div class="alert alert-info" style="margin-bottom:0.75rem;font-size:12px">Dates are pre-filled based on the 20th&ndash;19th billing cycle. Verify and adjust if needed.</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Period start</label><input type="date" id="billStart" style="width:140px"></div>
+        <div class="form-group"><label class="form-label">Period end</label><input type="date" id="billEnd" style="width:140px"></div>
+        <div class="form-group"><label class="form-label">Rate (&#8369;/kWh)</label><input type="number" id="billRate" placeholder="15.676" step="0.001" style="width:110px"></div>
+        <div class="form-group"><label class="form-label">Actual bill (&#8369;)</label><input type="number" id="billAmount" placeholder="e.g. 3500" style="width:120px"></div>
+        <button class="btn btn-primary" onclick="addBillingPeriod()" style="height:32px;align-self:flex-end">Save</button>
+      </div>
+      <div class="form-row" style="margin-top:0.5rem;padding-top:0.5rem;border-top:0.5px solid var(--border)">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Pre-solar days adjustment (optional &mdash; for first billing period)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
+            <input type="number" id="preSolarDays" placeholder="e.g. 11" style="width:80px" min="0">
+            <span style="font-size:12px;color:var(--text-muted)">days &times;</span>
+            <input type="number" id="preSolarKwh" placeholder="19.5" step="0.1" style="width:80px" min="0">
+            <span style="font-size:12px;color:var(--text-muted)">kWh/day (no solar)</span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">e.g. Solar started Mar 1. April bill covers Mar 20&ndash;Apr 19. Enter 11 days &times; 19.5 kWh/day. App subtracts estimated pre-solar cost from bill before computing savings.</div>
+        </div>
+      </div>
+      <div style="display:none">
+      </div>
+    </div>
+    <div id="billingEmpty" class="alert alert-info" style="margin:0">No billing periods added yet.</div>
+    <div id="billingList" style="display:none">
+      <div class="billing-row" style="font-size:11px;color:var(--text-muted);font-weight:500">
+        <span>Period</span><span>Rate</span><span>Actual bill</span><span>DEYE calc</span><span>Difference</span><span></span>
+      </div>
+      <div id="billingRows"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">Daily log</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:4px">
+          <button class="btn-toggle active" id="logWeekBtn" onclick="setLogMode('week')">Weekly</button>
+          <button class="btn-toggle" id="logMonthBtn" onclick="setLogMode('month')">Monthly</button>
+        </div>
+        <div class="week-nav">
+          <button class="btn btn-sm" onclick="changeCostPeriod(-1)"><i class="ti ti-arrow-left"></i></button>
+          <span id="costPeriodLabel" style="font-size:12px;font-weight:500;min-width:160px;text-align:center"></span>
+          <button class="btn btn-sm" onclick="changeCostPeriod(1)"><i class="ti ti-arrow-right"></i></button>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.75rem">Cost uses rate from billing period automatically. Savings = (Consumption &minus; Grid) &times; rate. <span style="color:#7c3aed;font-weight:600">M</span>=manual entry, T=telemetry.</div>
+    <div style="margin-bottom:0.75rem">
+      <button class="btn btn-sm btn-primary" onclick="toggleManualForm()" id="manualFormBtn"><i class="ti ti-plus"></i> Add / correct a day</button>
+    </div>
+    <div id="manualForm" style="display:none;padding:0.75rem;background:#faf5ff;border:0.5px solid #c4b5fd;border-radius:var(--radius);margin-bottom:0.75rem">
+      <div style="font-weight:500;font-size:13px;margin-bottom:0.5rem;color:#6b21a8">Manual day entry / correction</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:0.5rem">Use this for days DEYE missed due to internet loss, or to correct incomplete DEYE data with actual Meralco meter readings.</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Date</label><input type="date" id="manDate" style="width:140px"></div>
+        <div class="form-group"><label class="form-label">Consumption (kWh)</label><input type="number" id="manConsum" placeholder="e.g. 21.6" step="0.01" style="width:120px"></div>
+        <div class="form-group"><label class="form-label">Grid purchased (kWh)</label><input type="number" id="manGrid" placeholder="e.g. 13.54" step="0.01" style="width:120px"></div>
+        <div class="form-group"><label class="form-label">Production (kWh)</label><input type="number" id="manProd" placeholder="optional" step="0.01" style="width:110px"></div>
+        <button class="btn btn-primary" onclick="saveManualEntry()" style="height:32px;align-self:flex-end">Save</button>
+        <button class="btn" onclick="toggleManualForm()" style="height:32px;align-self:flex-end">Cancel</button>
+      </div>
+      <div id="manualStatus" style="display:none" class="alert"></div>
+    </div>
+    <div class="daily-row daily-hdr">
+      <span>Date</span><span>W</span><span>Prod kWh</span><span>Used kWh</span><span>Grid kWh</span><span>Saved &#8369;</span><span></span>
+    </div>
+    <div id="dailyRows"></div>
+    <div id="dailyEmpty" class="alert alert-info" style="margin-top:0.5rem;display:none">No data for this period.</div>
+    <div id="dailyTotals" style="display:none;margin-top:0.75rem;padding-top:0.75rem;border-top:0.5px solid var(--border);font-size:12px;color:var(--text-secondary)"></div>
+  </div>
+</div>
+
+<div id="tab-charts" class="section">
+  <div class="card">
+    <div class="section-title" id="chartTitle1">Consumption vs grid (kWh)</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.5rem">Total house usage vs what came from the grid per billing cycle. The gap is your solar contribution.</div>
+    <div class="chart-legend">
+      <span><span class="legend-dot" style="background:#e34948"></span>Total consumption</span>
+      <span><span class="legend-dot" style="background:#2a78d6"></span>From grid</span>
+      <span><span class="legend-dot" style="background:#1baf7a"></span>From solar</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartKwh"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="section-title">Cost vs savings (&#8369;)</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.5rem">What you paid Meralco vs what solar saved you per billing cycle.</div>
+    <div class="chart-legend">
+      <span><span class="legend-dot" style="background:#e34948"></span>Grid cost paid</span>
+      <span><span class="legend-dot" style="background:#1baf7a"></span>Solar savings</span>
+    </div>
+    <div class="chart-wrap"><canvas id="chartPeso"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="section-title">ROI progress over time</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:0.5rem">Cumulative savings vs your &#8369;<span id="roiTargetChart">280,000</span> investment. When the line crosses the target &mdash; system paid for itself.</div>
+    <div class="chart-wrap"><canvas id="chartRoi"></canvas></div>
+  </div>
+  <div id="chartSummaryCard" class="card" style="display:none">
+    <div class="section-title">At a glance</div>
+    <div class="metric-grid" id="chartSummaryMetrics"></div>
+  </div>
+</div>
+
+<div id="tab-export" class="section">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div class="section-title" style="margin:0">Export for AI analysis</div>
+      <span class="badge badge-purple">AI-ready</span>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:1rem">Exports your full system data. Paste or upload into any AI assistant for data-grounded TOU recommendations.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">
+      <button class="btn btn-purple" onclick="generateExport('full')"><i class="ti ti-file-text"></i> Full export</button>
+      <button class="btn" onclick="generateExport('recent')">Last 14 days</button>
+      <button class="btn" onclick="generateExport('month')">This month</button>
+    </div>
+    <div id="exportOutput" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--text-muted)" id="exportLabel"></span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="copyExport()"><i class="ti ti-copy"></i> Copy</button>
+          <button class="btn btn-sm btn-primary" onclick="downloadExport()"><i class="ti ti-download"></i> Download .txt</button>
+        </div>
+      </div>
+      <textarea class="copy-area" id="exportText" readonly></textarea>
+      <div class="alert alert-success" style="margin-top:0.75rem">
+        <strong>How to use:</strong> Copy or download, paste or upload into any AI assistant, and ask it to analyze your TOU settings.
+      </div>
+    </div>
+  </div>
+  <div id="insightCard" class="card" style="display:none">
+    <div class="section-title">Pattern insights</div>
+    <div id="insightContent"></div>
+  </div>
+  <div class="card" style="border-color:#fcd34d">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+      <div class="section-title" style="margin:0">Database backup</div>
+      <span class="badge badge-warn">Protect your data</span>
+    </div>
+    <div class="alert alert-warn" style="margin-bottom:1rem">Your data lives in this browser only. Export a backup regularly.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.5rem">
+      <button class="btn btn-primary" onclick="exportBackup()"><i class="ti ti-database-export"></i> Export backup (.json)</button>
+      <button class="btn" onclick="document.getElementById('importBackupFile').click()"><i class="ti ti-database-import"></i> Import backup</button>
+    </div>
+    <input type="file" id="importBackupFile" accept=".json" onchange="importBackup(this)">
+    <div id="backupStatus" style="display:none" class="alert"></div>
+  </div>
+</div>
+
+<script>
+const IDB_NAME='DeyeSolarDB_v4';const IDB_VER=1;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,IDB_VER);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('telemetry'))d.createObjectStore('telemetry',{keyPath:'date'});
+      if(!d.objectStoreNames.contains('monthly'))d.createObjectStore('monthly',{keyPath:'date'});
+      if(!d.objectStoreNames.contains('settings'))d.createObjectStore('settings',{keyPath:'key'});
+    };
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+
+let db=[],monthly=[],touProfiles=[],settings={rate:15.676,investment:280000},billingPeriods=[];
+let pendingSheets=[],previewIdx=0,dayChartInst=null,currentExportText='';
+let manualEntries=[];
+let historyOffset=0,historyMode='week',costOffset=0,logMode='week';
+let quickPendingSheets=[],chartKwhInst=null,chartPesoInst=null,chartRoiInst=null;
+let readOnly=false;
+
+const GITHUB_DATA_URL='https://harionss.github.io/solar-dashboard/data.json';
+
+async function loadFromGitHub(){
+  try{
+    const res=await fetch(GITHUB_DATA_URL+'?t='+Date.now());
+    if(!res.ok)return;
+    const data=await res.json();
+    if(data.db)db=data.db;
+    if(data.monthly)monthly=data.monthly;
+    if(data.touProfiles)touProfiles=data.touProfiles;
+    if(data.settings)settings=data.settings;
+    if(data.billingPeriods)billingPeriods=data.billingPeriods;
+    if(data.manualEntries)manualEntries=data.manualEntries;
+    readOnly=true;
+    renderAll();
+    applyReadOnly();
+  }catch(e){
+    // No data.json yet — start fresh, full mode
+  }
+}
+
+function toggleReadOnly(){
+  readOnly=!readOnly;
+  applyReadOnly();
+}
+
+function applyReadOnly(){
+  const btn=document.getElementById('readonlyToggle');
+  const banner=document.getElementById('readonlyBanner');
+  const uploadBtn=document.getElementById('quickUploadBtn');
+  const uploadTab=document.querySelector('.tab[onclick="showTab(\'upload\')"]');
+  btn.innerHTML=readOnly?'<i class="ti ti-pencil"></i> Edit':'<i class="ti ti-eye"></i> View';
+  btn.style.background=readOnly?'#eff6ff':'';
+  btn.style.color=readOnly?'#1a56db':'';
+  banner.style.display=readOnly?'block':'none';
+  if(uploadBtn)uploadBtn.style.display=readOnly?'none':'';
+  if(uploadTab)uploadTab.style.display=readOnly?'none':'';
+  const manualBtn=document.getElementById('manualFormBtn');
+  if(manualBtn)manualBtn.style.display=readOnly?'none':'';
+  const manualForm=document.getElementById('manualForm');
+  if(manualForm)manualForm.style.display='none';
+  const billingFormToggle=document.querySelector('button[onclick="toggleBillingForm()"]');
+  if(billingFormToggle)billingFormToggle.style.display=readOnly?'none':'';
+  const billingForm=document.getElementById('billingForm');
+  if(billingForm)billingForm.style.display='none';
+}
+
+function updateMonthlyCount(){
+  const el=document.getElementById('monthlyCount');
+  if(el)el.textContent=monthly.length;
+}
+
+async function clearMonthlyData(){
+  if(!confirm('This will clear all '+monthly.length+' monthly summary days from the app.\nYour telemetry, TOU profiles, billing periods and settings are NOT affected.\n\nAfter clearing, re-upload your monthly summary files to restore correct data.\n\nProceed?'))return;
+  monthly=[];
+  await saveDB();
+  updateMonthlyCount();
+  showStatus('Monthly data cleared. Please re-upload your monthly summary files.','info');
+  renderCost();
+}
+
+async function saveDB(){
+  try{
+    const idb=await openDB();
+    const tx1=idb.transaction('telemetry','readwrite');
+    const s1=tx1.objectStore('telemetry');s1.clear();db.forEach(e=>s1.put(e));
+    const tx2=idb.transaction('monthly','readwrite');
+    const s2=tx2.objectStore('monthly');s2.clear();monthly.forEach(e=>s2.put(e));
+    const tx3=idb.transaction('settings','readwrite');
+    const s3=tx3.objectStore('settings');
+    s3.put({key:'touProfiles',data:touProfiles});
+    s3.put({key:'settings',data:settings});
+    s3.put({key:'billing',data:billingPeriods});
+    s3.put({key:'manual',data:manualEntries});
+  }catch(e){alert('Save error: '+e.message);}
+}
+
+async function loadDB(){
+  try{
+    const idb=await openDB();
+    const getAll=async(store)=>new Promise(res=>{const tx=idb.transaction(store,'readonly');const r=tx.objectStore(store).getAll();r.onsuccess=()=>res(r.result||[]);});
+    const getKey=async(store,key)=>new Promise(res=>{const tx=idb.transaction(store,'readonly');const r=tx.objectStore(store).get(key);r.onsuccess=()=>res(r.result?.data||null);});
+    db=await getAll('telemetry');
+    monthly=await getAll('monthly');
+    const tp=await getKey('settings','touProfiles');
+    const sv=await getKey('settings','settings');
+    const bl=await getKey('settings','billing');
+    if(tp&&tp.length)touProfiles=tp; else initDefaultTou();
+    if(sv)settings=Object.assign({},settings,sv);
+    if(bl)billingPeriods=bl;
+    db.sort((a,b)=>b.date.localeCompare(a.date));
+    monthly.sort((a,b)=>b.date.localeCompare(a.date));
+  }catch(e){console.error(e);initDefaultTou();}
+  if(!db.length&&!monthly.length){
+    await loadFromGitHub();
+  } else {
+    renderAll();
+  }
+}
+
+function initDefaultTou(){
+  touProfiles=[{date:'2026-06-20',note:'Current profile',rows:[
+    {time:'02:00',power:800,soc:25,grid:false},
+    {time:'06:00',power:5000,soc:25,grid:false},
+    {time:'11:00',power:5000,soc:40,grid:false},
+    {time:'14:00',power:600,soc:60,grid:false},
+    {time:'15:00',power:1500,soc:95,grid:false},
+    {time:'22:00',power:800,soc:60,grid:false}
+  ]}];
+}
+
+function normDate(d){
+  // Ensure date is always YYYY-MM-DD format regardless of source
+  if(!d)return null;
+  const s=String(d).replace(/\//g,'-');
+  // If it looks like a datetime string, take only the date part
+  const m=s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m?m[1]:null;
+}
+function getRateForDate(d){const p=billingPeriods.find(b=>d>=b.start&&d<=b.end);return p?p.rate:(settings.rate||15.676);}
+function calcSavings(consumed,purchased,rate){return Math.max(0,(consumed-purchased)*rate);}
+
+function showTab(t){
+  const tabs=['cost','charts','history','tou','upload','export'];
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',tabs[i]===t));
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='history'){historyOffset=0;renderHistory();}
+  if(t==='tou')renderTou();
+  if(t==='cost')renderCost();
+  if(t==='charts')renderCharts();
+  if(t==='export')renderInsights();
+}
+function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();applyReadOnly();}
+function updateCount(){document.getElementById('entryCount').textContent=db.length+' day'+(db.length!==1?'s':'');}
+function loadSettingsUI(){document.getElementById('solarInvestment').value=settings.investment||'';}
+
+function classifyWeather(e){const m=monthly.find(x=>x.date===e.date);const prod=m?m.production:(e.pvTotal||0);return(prod<8||e.peakPV<1.5)?'cloudy':'sunny';}
+function classifyWeatherMonthly(m){return m.production<8?'cloudy':'sunny';}
+
+function showQuickUpload(){document.getElementById('quickUploadModal').style.display='flex';}
+function dismissQuickUpload(){
+  document.getElementById('quickUploadModal').style.display='none';
+  quickPendingSheets=[];
+  document.getElementById('quickUploadStatus').style.display='none';
+  document.getElementById('quickSaveBtn').style.display='none';
+  document.getElementById('quickFileInput').value='';
+}
+function handleQuickUpload(input){
+  const files=Array.from(input.files);if(!files.length)return;
+  const el=document.getElementById('quickUploadStatus');
+  el.style.display='block';el.className='alert alert-info';el.textContent='Reading...';
+  let all=[],done=0;
+  files.forEach(f=>readFile(f,sheets=>{
+    all=all.concat(sheets);done++;
+    if(done===files.length){
+      const seen={};
+      all.forEach(s=>{
+        const existing=seen[s.date];
+        if(!existing||s.data.length>existing.data.length)seen[s.date]=s;
+      });
+      quickPendingSheets=Object.values(seen).sort((a,b)=>b.date.localeCompare(a.date));
+      const n=quickPendingSheets.filter(s=>!s.alreadyExists).length;
+      const u=quickPendingSheets.filter(s=>s.alreadyExists&&s.data.length>(db.find(e=>e.date===s.date)?._rowCount||0)).length;
+      const sk=quickPendingSheets.filter(s=>s.alreadyExists&&s.data.length<=(db.find(e=>e.date===s.date)?._rowCount||0)).length;
+      el.className='alert alert-success';
+      el.textContent='Found '+quickPendingSheets.length+' day(s): '+n+' new'+(u?' + '+u+' more complete':'')+( sk?' + '+sk+' skipped (existing more complete)':'');
+      document.getElementById('quickSaveCount').textContent='('+quickPendingSheets.length+')';
+      document.getElementById('quickSaveBtn').style.display='block';
+    }
+  },()=>done++));
+}
+async function quickSaveSelected(){
+  if(!quickPendingSheets.length)return;
+  let saved=0,updated=0,skipped=0;
+  quickPendingSheets.forEach(s=>{
+    const idx=db.findIndex(e=>e.date===s.date);
+    if(idx>=0){
+      const existingRows=db[idx]._rowCount||0;
+      if(s.data.length>=existingRows){const entry=Object.assign({date:s.date,_rowCount:s.data.length},summarize(s.data));db[idx]=entry;updated++;}
+      else skipped++;
+    }else{
+      const entry=Object.assign({date:s.date,_rowCount:s.data.length},summarize(s.data));db.push(entry);saved++;
+    }
+  });
+  db.sort((a,b)=>b.date.localeCompare(a.date));
+  await saveDB();updateCount();
+  const el=document.getElementById('quickUploadStatus');
+  el.className='alert alert-success';
+  el.textContent='Saved '+saved+' new'+(updated?' + updated '+updated:'')+(skipped?' + '+skipped+' skipped (existing data more complete)':'')+'. Total: '+db.length+' days.';
+  document.getElementById('quickSaveBtn').style.display='none';
+  quickPendingSheets=[];
+  setTimeout(()=>dismissQuickUpload(),2000);
+}
+
+function handleTelemetry(input){
+  const files=Array.from(input.files);if(!files.length)return;
+  if(files.length===1){
+    readFile(files[0],sheets=>{
+      if(!sheets.length){showStatus('No readable data.','warn');return;}
+      pendingSheets=sheets;
+      document.getElementById('importSource').textContent='1 DEYE file';
+      document.getElementById('parseStatus').style.display='none';
+      showBatchPreview();
+    });
+  }else{
+    showStatus('Reading '+files.length+' files...','info');
+    document.getElementById('parseStatus').style.display='block';
+    let all=[],done=0;
+    files.forEach(f=>readFile(f,sheets=>{
+      all=all.concat(sheets);done++;
+      if(done===files.length){
+        const seen={};
+        all.forEach(s=>{const ex=seen[s.date];if(!ex||s.data.length>ex.data.length)seen[s.date]=s;});
+        const merged=Object.values(seen).sort((a,b)=>b.date.localeCompare(a.date));
+        if(!merged.length){showStatus('No readable data.','warn');return;}
+        pendingSheets=merged;
+        document.getElementById('importSource').textContent=files.length+' files - '+merged.length+' days (most complete kept)';
+        document.getElementById('parseStatus').style.display='none';
+        showBatchPreview();
+      }
+    },()=>done++));
+  }
+  input.value='';
+}
+
+function readFile(file,onSuccess,onError){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{onSuccess(parseTelemetry(XLSX.read(e.target.result,{type:'array',cellDates:true})));}
+    catch(err){if(onError)onError(err);else console.error(err);}
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseTelemetry(wb){
+  return wb.SheetNames.map(name=>{
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false});
+    const data=rows.slice(1).filter(r=>r[0]).map(r=>({time:r[0],production:+r[1]||0,consumption:+r[2]||0,grid:+r[3]||0,battery:+r[4]||0,soc:+r[5]||0,pv:+r[6]||0}));
+    const dateStr=name||data[0]?.time?.slice(0,10)||'Unknown';
+    return{date:dateStr,data,alreadyExists:db.some(e=>e.date===dateStr),selected:true};
+  }).filter(s=>s.data.length>0);
+}
+
+async function handleMonthly(input){
+  const files=Array.from(input.files);if(!files.length)return;
+  let allEntries=[],done=0;
+  files.forEach(f=>{
+    const reader=new FileReader();
+    reader.onload=async e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'array'});
+        wb.SheetNames.forEach(name=>{
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets[name],{header:1,raw:false});
+          rows.slice(1).forEach(r=>{
+            if(!r[0])return;
+            // Robust date parsing - handles all XLSX date formats
+            let dateStr=null;
+            const raw=r[0];
+            if(typeof raw==='number'){
+              // Excel serial date - use UTC to avoid timezone shift
+              const d=new Date(Math.round((raw-25569)*86400*1000));
+              dateStr=d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+            } else if(raw instanceof Date){
+              // Date object - use UTC components to avoid timezone shift
+              dateStr=raw.getUTCFullYear()+'-'+String(raw.getUTCMonth()+1).padStart(2,'0')+'-'+String(raw.getUTCDate()).padStart(2,'0');
+            } else {
+              // String like '2026/05/01' or '2026-05-01' or '2026/5/1'
+              const s=String(raw);
+              const m=s.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+              if(m)dateStr=m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+            }
+            if(!dateStr||!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))return;
+            allEntries.push({date:dateStr,production:+r[1]||0,consumption:+r[2]||0,feedIn:+r[3]||0,purchased:+r[4]||0,charge:+r[5]||0,discharge:+r[6]||0});
+          });
+        });
+      }catch(err){console.error(err);}
+      done++;
+      if(done===files.length){
+        let added=0,updated=0;
+        allEntries.forEach(entry=>{const idx=monthly.findIndex(e=>e.date===entry.date);if(idx>=0){monthly[idx]=entry;updated++;}else{monthly.push(entry);added++;}});
+        monthly.sort((a,b)=>b.date.localeCompare(a.date));
+        await saveDB();
+        showStatus('Monthly: '+added+' new, '+updated+' updated. Total: '+monthly.length+' days.','success');updateMonthlyCount();
+        renderCost();
+      }
+    };
+    reader.readAsArrayBuffer(f);
+  });
+  input.value='';
+}
+
+function showBatchPreview(){
+  document.getElementById('sheetCount').textContent=pendingSheets.length;
+  document.getElementById('batchPreviewCard').style.display='block';
+  document.getElementById('previewCard').style.display='none';
+  renderSheetList();previewIdx=0;showPreviewFor(0);
+}
+
+function renderSheetList(){
+  document.getElementById('sheetList').innerHTML=pendingSheets.map((s,i)=>{
+    const existingRows=s.alreadyExists?(db.find(e=>e.date===s.date)?._rowCount||0):0;
+    const isMoreComplete=s.alreadyExists&&s.data.length>existingRows;
+    const isLessComplete=s.alreadyExists&&s.data.length<existingRows;
+    let cls=s.alreadyExists?'exists':'new';
+    let badge=s.alreadyExists?'<span class="badge badge-warn">Overwrite</span>':'<span class="badge badge-green">New</span>';
+    if(isMoreComplete)badge='<span class="badge badge-green">More complete</span>';
+    if(isLessComplete){cls='skipped';badge='<span class="badge" style="background:var(--surface-1);color:var(--text-muted)">Existing more complete</span>';}
+    return'<div class="sheet-item '+cls+'"><label class="sheet-check"><input type="checkbox" '+(s.selected&&!isLessComplete?'checked':'')+' onchange="toggleSheet('+i+',this.checked)" style="width:auto"><span style="font-weight:500">'+s.date+'</span> <span style="font-size:11px;color:var(--text-muted)">('+s.data.length+' rows)</span> '+badge+'</label><button class="btn btn-sm" onclick="previewSheet('+i+')"><i class="ti ti-eye"></i></button></div>';
+  }).join('');
+  // auto-deselect less complete
+  pendingSheets.forEach((s,i)=>{if(s.alreadyExists){const ex=db.find(e=>e.date===s.date)?._rowCount||0;if(s.data.length<ex)s.selected=false;}});
+  updateSelectionSummary();
+}
+
+function toggleSheet(i,v){pendingSheets[i].selected=v;updateSelectionSummary();}
+function toggleAll(v){pendingSheets.forEach(s=>s.selected=v);renderSheetList();}
+function updateSelectionSummary(){
+  const sel=pendingSheets.filter(s=>s.selected).length;
+  const over=pendingSheets.filter(s=>s.selected&&s.alreadyExists).length;
+  document.getElementById('selectionSummary').textContent=sel+' of '+pendingSheets.length+' selected'+(over?' - '+over+' will overwrite':'');
+}
+function previewSheet(i){previewIdx=i;showPreviewFor(i);}
+function changePage(d){previewIdx=Math.max(0,Math.min(pendingSheets.length-1,previewIdx+d));showPreviewFor(previewIdx);}
+
+function showPreviewFor(i){
+  const s=pendingSheets[i];if(!s)return;
+  document.getElementById('previewCard').style.display='block';
+  document.getElementById('previewDate').textContent=s.date+(s.alreadyExists?' (overwrite)':'');
+  const pg=document.getElementById('pager');
+  if(pendingSheets.length>1){pg.style.display='flex';document.getElementById('pageIndicator').textContent=(i+1)+'/'+pendingSheets.length;}
+  else pg.style.display='none';
+  const data=s.data;
+  const peakPV=Math.max(...data.map(r=>r.pv)).toFixed(2);
+  const avgLoad=(data.reduce((a,r)=>a+r.consumption,0)/data.length).toFixed(2);
+  const minSOC=Math.min(...data.map(r=>r.soc));
+  const maxSOC=Math.max(...data.map(r=>r.soc));
+  const totalGrid=data.filter(r=>r.grid>0).reduce((a,r)=>a+r.grid*5/60,0).toFixed(2);
+  document.getElementById('previewMetrics').innerHTML='<div class="metric"><div class="metric-label">Peak PV</div><div class="metric-val solar">'+peakPV+' kW</div></div><div class="metric"><div class="metric-label">Avg load</div><div class="metric-val load">'+avgLoad+' kW</div></div><div class="metric"><div class="metric-label">SOC range</div><div class="metric-val battery">'+minSOC+'-'+maxSOC+'%</div></div><div class="metric"><div class="metric-label">Grid import</div><div class="metric-val grid">'+totalGrid+' kWh</div></div><div class="metric"><div class="metric-label">Data rows</div><div class="metric-val">'+data.length+'</div></div>';
+  renderDayChart(data);
+}
+
+function renderDayChart(data){
+  if(dayChartInst){dayChartInst.destroy();dayChartInst=null;}
+  const labels=data.map((_,i)=>(i%12===0)?Math.floor(i*5/60).toString().padStart(2,'0')+':00':'');
+  const ctx=document.getElementById('dayChart').getContext('2d');
+  dayChartInst=new Chart(ctx,{type:'line',data:{labels,datasets:[
+    {label:'PV',data:data.map(r=>r.pv),borderColor:'#eda100',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'Load',data:data.map(r=>r.consumption),borderColor:'#e34948',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,borderDash:[4,2]},
+    {label:'SOC',data:data.map(r=>r.soc/10),borderColor:'#1baf7a',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false,yAxisID:'y2'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{font:{size:10},color:'#898781',maxRotation:0},grid:{color:'#e1e0d9'}},
+      y:{ticks:{font:{size:10},color:'#898781'},grid:{color:'#e1e0d9'},title:{display:true,text:'kW',font:{size:10}}},
+      y2:{position:'right',ticks:{font:{size:10},color:'#1baf7a',callback:function(v){return(v*10).toFixed(0)+'%';}},grid:{display:false}}
+    }
+  }});
+}
+
+async function saveSelected(){
+  const toSave=pendingSheets.filter(s=>s.selected);
+  if(!toSave.length){showStatus('Select at least one day.','warn');return;}
+  let saved=0,updated=0,skipped=0;
+  toSave.forEach(s=>{
+    const idx=db.findIndex(e=>e.date===s.date);
+    if(idx>=0){
+      const existingRows=db[idx]._rowCount||0;
+      if(s.data.length>=existingRows){db[idx]=Object.assign({date:s.date,_rowCount:s.data.length},summarize(s.data));updated++;}
+      else skipped++;
+    }else{
+      db.push(Object.assign({date:s.date,_rowCount:s.data.length},summarize(s.data)));saved++;
+    }
+  });
+  db.sort((a,b)=>b.date.localeCompare(a.date));
+  await saveDB();updateCount();
+  document.getElementById('batchPreviewCard').style.display='none';
+  document.getElementById('previewCard').style.display='none';
+  pendingSheets=[];
+  showStatus('Saved '+saved+' new'+(updated?' + updated '+updated:'')+(skipped?' + '+skipped+' skipped':'')+'. Total: '+db.length+' days.','success');
+}
+
+function summarize(data){
+  const hrly=function(fn){return Array(24).fill(0).map(function(_,h){const pts=data.filter(function(_,i){return Math.floor(i*5/60)===h;});return pts.length?+(pts.reduce(function(a,r){return a+fn(r);},0)/pts.length).toFixed(3):0;});};
+  return{
+    peakPV:+Math.max(...data.map(r=>r.pv)).toFixed(2),
+    avgLoad:+(data.reduce((a,r)=>a+r.consumption,0)/data.length).toFixed(2),
+    minSOC:Math.min(...data.map(r=>r.soc)),maxSOC:Math.max(...data.map(r=>r.soc)),
+    startSOC:data[0]?data[0].soc:0,endSOC:data[data.length-1]?data[data.length-1].soc:0,
+    gridImport:+(data.filter(r=>r.grid>0).reduce((a,r)=>a+r.grid*5/60,0)).toFixed(2),
+    gridExport:+(data.filter(r=>r.grid<0).reduce((a,r)=>a+Math.abs(r.grid)*5/60,0)).toFixed(2),
+    pvTotal:+(data.reduce((a,r)=>a+r.pv*5/60,0)).toFixed(2),
+    pvPeakHour:getPeakHour(data),minSOCTime:getMinSOCTime(data),
+    hourlyPV:hrly(function(r){return r.pv;}),
+    hourlyLoad:hrly(function(r){return r.consumption;}),
+    hourlySOC:Array(24).fill(0).map(function(_,h){const pts=data.filter(function(_,i){return Math.floor(i*5/60)===h;});return pts.length?+(pts.reduce(function(a,r){return a+r.soc;},0)/pts.length).toFixed(1):0;})
+  };
+}
+function getPeakHour(data){let max=0,idx=0;data.forEach((r,i)=>{if(r.pv>max){max=r.pv;idx=i;}});return Math.floor(idx*5/60).toString().padStart(2,'0')+':00';}
+function getMinSOCTime(data){let min=100,idx=0;data.forEach((r,i)=>{if(r.soc<min){min=r.soc;idx=i;}});const h=Math.floor(idx*5/60),m=(idx*5)%60;return h.toString().padStart(2,'0')+':'+m.toString().padStart(2,'0');}
+function cancelUpload(){document.getElementById('batchPreviewCard').style.display='none';document.getElementById('previewCard').style.display='none';pendingSheets=[];}
+function showStatus(msg,type){const el=document.getElementById('parseStatus');el.style.display='block';el.className='alert alert-'+(type==='success'?'success':type==='warn'?'warn':'info');el.textContent=msg;}
+
+function fmtDate(d){return d.toISOString().slice(0,10);}
+function fmtDisp(d){return d.toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}
+function fmtMonth(ym){const parts=ym.split('-');return new Date(+parts[0],+parts[1]-1,1).toLocaleDateString('en-PH',{month:'short',year:'numeric'});}
+
+function getWeekRange(offset){
+  const now=new Date();const day=now.getDay();
+  const mon=new Date(now);mon.setDate(now.getDate()-((day+6)%7)+offset*7);mon.setHours(0,0,0,0);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  return{start:mon,end:sun};
+}
+function getMonthRange(offset){
+  const now=new Date();
+  const d=new Date(now.getFullYear(),now.getMonth()+offset,1);
+  const start=new Date(d.getFullYear(),d.getMonth(),1);
+  const end=new Date(d.getFullYear(),d.getMonth()+1,0);
+  // Use local date formatting to avoid UTC offset issues
+  const pad=n=>n.toString().padStart(2,'0');
+  const startStr=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-01';
+  const endStr=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(end.getDate());
+  return{start,end,startStr,endStr,ym:d.getFullYear()+'-'+pad(d.getMonth()+1)};
+}
+
+function setHistoryMode(m){
+  historyMode=m;historyOffset=0;
+  document.getElementById('histWeekBtn').classList.toggle('active',m==='week');
+  document.getElementById('histMonthBtn').classList.toggle('active',m==='month');
+  renderHistory();
+}
+function changeHistoryPeriod(d){historyOffset+=d;renderHistory();}
+
+function renderHistory(){
+  let startStr,endStr,label;
+  if(historyMode==='week'){const r=getWeekRange(historyOffset);startStr=fmtDate(r.start);endStr=fmtDate(r.end);label=fmtDisp(r.start)+' - '+fmtDisp(r.end);}
+  else{const r=getMonthRange(historyOffset);startStr=r.startStr;endStr=r.endStr;label=fmtMonth(r.ym);}
+  document.getElementById('historyPeriodLabel').textContent=label;
+  document.getElementById('historyTodayBtn').style.display=historyOffset!==0?'block':'none';
+  const empty=document.getElementById('historyEmpty');
+  const list=document.getElementById('historyList');
+  const periodEmpty=document.getElementById('historyPeriodEmpty');
+  const monthCard=document.getElementById('monthSummaryCard');
+  if(!db.length){empty.style.display='block';list.style.display='none';periodEmpty.style.display='none';monthCard.style.display='none';return;}
+  empty.style.display='none';
+  const periodData=db.filter(e=>e.date>=startStr&&e.date<=endStr);
+  periodData.sort((a,b)=>b.date.localeCompare(a.date));
+  if(!periodData.length){list.style.display='none';periodEmpty.style.display='block';}
+  else{
+    periodEmpty.style.display='none';list.style.display='block';
+    document.getElementById('entryRows').innerHTML=periodData.map(e=>{
+      const w=classifyWeather(e);
+      const wBadge=w==='sunny'?'<span class="weather-badge weather-sunny">☀ Sunny</span>':'<span class="weather-badge weather-cloudy">☁ Cloudy</span>';
+      const m=monthly.find(x=>x.date===e.date);
+      const prodStr=m?m.production+'kWh prod':'PV '+e.peakPV+'kW peak';
+      const gridStr=m?m.purchased+'kWh grid':e.gridImport+'kWh grid';
+      const d=e.date;
+      const html='<div class="entry-row">'+
+        '<div><span style="font-weight:500">'+d+'</span><br>'+wBadge+'</div>'+
+        '<div><div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;flex-wrap:wrap">'+
+        '<span style="color:#eda100;font-size:12px">'+prodStr+'</span>'+
+        '<span style="color:var(--text-muted)">·</span>'+
+        '<span style="color:#2a78d6;font-size:12px">'+gridStr+'</span>'+
+        '<span style="color:var(--text-muted)">·</span>'+
+        '<span style="color:#1baf7a;font-size:12px">SOC '+e.minSOC+'-'+e.maxSOC+'%</span>'+
+        '</div><div class="soc-bar" style="max-width:200px">'+
+        '<div class="soc-fill" style="width:'+e.maxSOC+'%;background:'+(e.minSOC<=25?'#e34948':'#1baf7a')+'"></div>'+
+        '</div></div>'+
+        '<div style="text-align:right"><button class="btn btn-sm" onclick="deleteEntry(this.dataset.d)" data-d="'+d+'"><i class="ti ti-trash"></i></button></div>'+
+        '</div>';
+      return html;
+    }).join('');
+  }
+  if(db.length>=2){
+    monthCard.style.display='block';
+    document.getElementById('summaryDays').textContent=db.length;
+    const avgPeak=(db.reduce((a,e)=>a+e.peakPV,0)/db.length).toFixed(2);
+    const avgLoad=(db.reduce((a,e)=>a+e.avgLoad,0)/db.length).toFixed(2);
+    const lowSOC=db.filter(e=>e.minSOC<=25).length;
+    const avgGrid=(db.reduce((a,e)=>a+e.gridImport,0)/db.length).toFixed(2);
+    const sunnyDays=db.filter(e=>classifyWeather(e)==='sunny').length;
+    document.getElementById('monthSummary').innerHTML='<div class="metric-grid"><div class="metric"><div class="metric-label">Avg peak PV</div><div class="metric-val solar">'+avgPeak+' kW</div></div><div class="metric"><div class="metric-label">Avg daily load</div><div class="metric-val load">'+avgLoad+' kW</div></div><div class="metric"><div class="metric-label">SOC \u226425% days</div><div class="metric-val" style="color:'+(lowSOC>0?'#e34948':'#1baf7a')+'">'+lowSOC+'</div></div><div class="metric"><div class="metric-label">Avg grid import</div><div class="metric-val grid">'+avgGrid+' kWh</div></div></div><div style="font-size:12px;color:var(--text-muted);margin-top:4px">\u2600 '+sunnyDays+' sunny \u00b7 \u2601 '+(db.length-sunnyDays)+' cloudy/typhoon days</div>';
+  }
+}
+async function deleteEntry(date){if(!confirm('Delete '+date+'?'))return;db=db.filter(e=>e.date!==date);await saveDB();renderHistory();updateCount();}
+
+function renderTou(){
+  const p=touProfiles[touProfiles.length-1];if(!p)return;
+  document.getElementById('activeTouDate').textContent=p.date;
+  const purposes=['Low power overnight','Full power at dawn','Midday SOC floor raise','Afternoon charge push','Peak SOC before sunset','Night wind-down'];
+  document.getElementById('touRows').innerHTML=(p.rows||[]).map((r,i)=>{
+    const isEditing=touEditIdx===i;
+    if(isEditing){
+      return '<div class="tou-row" style="background:var(--bg-accent);border-radius:var(--radius);padding:6px 4px">'+
+        '<input type="time" value="'+r.time+'" id="editTime" style="width:80px;font-size:12px">'+
+        '<input type="number" value="'+r.power+'" id="editPower" style="width:80px;font-size:12px" min="0" max="10000">'+
+        '<input type="number" value="'+r.soc+'" id="editSoc" style="width:60px;font-size:12px" min="0" max="100">'+
+        '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="editGrid" '+(r.grid?'checked':'')+' style="width:auto"> Grid</label>'+
+        '<div style="display:flex;gap:4px"><button class="btn btn-sm btn-primary" onclick="saveTouRow('+i+')" style="font-size:11px">Save</button><button class="btn btn-sm" onclick="cancelTouEdit()" style="font-size:11px">Cancel</button></div>'+
+        '</div>';
+    }
+    return '<div class="tou-row"><span style="font-weight:500">'+r.time+'</span><span>'+r.power.toLocaleString()+'W</span><span style="color:#1baf7a;font-weight:500">'+r.soc+'%</span><span>'+(r.grid?'<span class="badge badge-blue">Yes</span>':'<span style="color:var(--text-muted);font-size:12px">No</span>')+'</span><span style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:space-between">'+(purposes[i]||'')+'<button class="btn btn-sm" onclick="editTouRow('+i+')" style="margin-left:8px;font-size:11px"><i class="ti ti-pencil"></i></button></span></div>';
+  }).join('');
+  document.getElementById('touProfileList').innerHTML=touProfiles.map((pr,i)=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(i===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+'<span style="color:var(--text-muted);font-size:12px;margin-left:8px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+i+')"><i class="ti ti-trash"></i></button></div>').join('');
+}
+let touEditIdx=-1;
+function editTouRow(i){touEditIdx=i;renderTou();}
+function cancelTouEdit(){touEditIdx=-1;renderTou();}
+async function saveTouRow(i){
+  const p=touProfiles[touProfiles.length-1];if(!p)return;
+  const time=document.getElementById('editTime').value;
+  const power=parseInt(document.getElementById('editPower').value);
+  const soc=parseInt(document.getElementById('editSoc').value);
+  const grid=document.getElementById('editGrid').checked;
+  if(!time||isNaN(power)||isNaN(soc)){alert('Fill in all fields.');return;}
+  p.rows[i]={time,power,soc,grid};
+  touEditIdx=-1;
+  await saveDB();renderTou();
+}
+async function addTouProfile(){
+  const date=document.getElementById('touDate').value.trim();
+  const note=document.getElementById('touNote').value.trim();
+  if(!date){alert('Enter an effective date.');return;}
+  const lastRows=touProfiles.length?JSON.parse(JSON.stringify(touProfiles[touProfiles.length-1].rows)):[];
+  touProfiles.push({date,note,rows:lastRows});
+  touProfiles.sort((a,b)=>a.date.localeCompare(b.date));
+  await saveDB();renderTou();
+  document.getElementById('touDate').value='';document.getElementById('touNote').value='';
+}
+async function deleteTouProfile(i){if(!confirm('Remove?'))return;touProfiles.splice(i,1);await saveDB();renderTou();}
+
+async function saveSettings(){
+  const rate=parseFloat(document.getElementById('meralcoRate').value);
+  const inv=parseFloat(document.getElementById('solarInvestment').value);
+  if(isNaN(rate)||rate<=0){alert('Enter a valid rate.');return;}
+  settings.rate=rate;if(!isNaN(inv)&&inv>0)settings.investment=inv;
+  await saveDB();
+  document.getElementById('settingsSaved').style.display='block';
+  setTimeout(function(){document.getElementById('settingsSaved').style.display='none';},2000);
+  renderCost();
+}
+
+function getNextBillingPeriod(){
+  if(billingPeriods.length){
+    const last=billingPeriods.slice().sort((a,b)=>a.start.localeCompare(b.start)).pop();
+    const lastEnd=new Date(last.end);
+    const nextStart=new Date(lastEnd);nextStart.setDate(nextStart.getDate()+1);
+    const nextEnd=new Date(nextStart);nextEnd.setMonth(nextEnd.getMonth()+1);nextEnd.setDate(nextEnd.getDate()-1);
+    return{start:fmtDate(nextStart),end:fmtDate(nextEnd)};
+  }else{
+    const now=new Date();
+    let startMonth=now.getMonth(),startYear=now.getFullYear();
+    if(now.getDate()<20){startMonth--;if(startMonth<0){startMonth=11;startYear--;}}
+    const start=new Date(startYear,startMonth,20);
+    const end=new Date(startYear,startMonth+1,19);
+    return{start:fmtDate(start),end:fmtDate(end)};
+  }
+}
+
+function toggleBillingForm(){
+  const f=document.getElementById('billingForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+  if(f.style.display==='block'){
+    const next=getNextBillingPeriod();
+    document.getElementById('billStart').value=next.start;
+    document.getElementById('billEnd').value=next.end;
+    const lastRate=billingPeriods.length?billingPeriods[0].rate:settings.rate;
+    document.getElementById('billRate').value=lastRate||'';
+  }
+}
+
+async function addBillingPeriod(){
+  const start=document.getElementById('billStart').value;
+  const end=document.getElementById('billEnd').value;
+  const rate=parseFloat(document.getElementById('billRate').value);
+  const amount=parseFloat(document.getElementById('billAmount').value);
+  if(!start||!end||isNaN(rate)||isNaN(amount)){alert('Fill in all fields including rate.');return;}
+  const periodM=monthly.filter(e=>e.date>=start&&e.date<=end);
+  const periodT=db.filter(e=>e.date>=start&&e.date<=end);
+  const deyeKwh=periodM.length>0
+    ?+periodM.reduce((a,e)=>a+e.purchased,0).toFixed(2)
+    :+periodT.reduce((a,e)=>a+(e.gridImport||0),0).toFixed(2);
+  const dataSource=periodM.length>0?'monthly':'telemetry';
+  // Pre-solar adjustment for first billing period
+  const preSolarDays=parseInt(document.getElementById('preSolarDays').value)||0;
+  const preSolarKwh=parseFloat(document.getElementById('preSolarKwh').value)||0;
+  const preSolarCost=preSolarDays>0&&preSolarKwh>0?preSolarDays*preSolarKwh*rate:0;
+  // Adjusted bill = actual bill minus estimated pre-solar portion
+  const adjustedBill=preSolarCost>0?amount-preSolarCost:amount;
+  const deyeCost=+(deyeKwh*rate).toFixed(2);
+  billingPeriods.push({start,end,rate,amount,adjustedBill:+adjustedBill.toFixed(2),preSolarDays,preSolarKwh,preSolarCost:+preSolarCost.toFixed(2),deyeKwh,deyeCost,dataSource});
+  billingPeriods.sort((a,b)=>b.start.localeCompare(a.start));
+  await saveDB();renderBilling();renderDailyLog();
+  ['billStart','billEnd','billRate','billAmount','preSolarDays','preSolarKwh'].forEach(function(id){document.getElementById(id).value='';}); 
+  document.getElementById('billingForm').style.display='none';
+}
+
+function renderBilling(){
+  const empty=document.getElementById('billingEmpty');
+  const list=document.getElementById('billingList');
+  if(!billingPeriods.length){empty.style.display='block';list.style.display='none';return;}
+  empty.style.display='none';list.style.display='block';
+  document.getElementById('billingRows').innerHTML=billingPeriods.map(function(b,i){
+    const src=b.dataSource==='telemetry'?' (telemetry)':'';
+    const preSolarNote=b.preSolarDays>0?' | Pre-solar adj: -₱'+b.preSolarCost.toFixed(0):'';
+    const adjBill=b.preSolarCost>0?b.adjustedBill:b.amount;
+    const diff=adjBill-b.deyeCost;
+    const diffColor=Math.abs(diff)<300?'#1baf7a':diff>0?'#e34948':'#1baf7a';
+    const billLabel=b.preSolarCost>0?
+      '₱'+b.amount.toLocaleString()+' <span style="font-size:10px;color:#7c3aed">(adj: ₱'+b.adjustedBill.toFixed(0)+')</span>':
+      '₱'+b.amount.toLocaleString();
+    return '<div class="billing-row">'+
+      '<span style="font-size:11px">'+b.start+'<br>'+b.end+
+      (b.preSolarDays>0?'<br><span style="font-size:9px;color:#7c3aed">'+b.preSolarDays+'d pre-solar</span>':'')+
+      '</span>'+
+      '<span style="color:#7c3aed">₱'+b.rate+'</span>'+
+      '<span style="font-weight:500">'+billLabel+'</span>'+
+      '<span style="color:#2a78d6">₱'+b.deyeCost+
+      '<br><span style="font-size:10px;color:var(--text-muted)">'+b.deyeKwh+'kWh'+src+'</span></span>'+
+      '<span style="color:'+diffColor+';font-weight:500">'+(diff>=0?'+':'')+diff.toFixed(0)+'</span>'+
+      '<button class="btn btn-sm" style="padding:2px 6px" onclick="deleteBilling('+i+')">'+
+      '<i class="ti ti-trash" style="font-size:11px"></i></button>'+
+      '</div>';
+  }).join('');
+}
+async function deleteBilling(i){if(!confirm('Remove?'))return;billingPeriods.splice(i,1);await saveDB();renderBilling();renderDailyLog();}
+
+function setLogMode(m){logMode=m;costOffset=0;document.getElementById('logWeekBtn').classList.toggle('active',m==='week');document.getElementById('logMonthBtn').classList.toggle('active',m==='month');renderDailyLog();}
+function changeCostPeriod(d){costOffset+=d;renderDailyLog();}
+
+function renderCost(){
+  if(!db.length&&!monthly.length){renderBilling();renderDailyLog();return;}
+  const investment=settings.investment||280000;
+  const allDates=new Set([...monthly.map(e=>e.date),...db.map(e=>e.date),...manualEntries.map(e=>e.date)]);
+  let totalGridCost=0,totalSavings=0;
+  allDates.forEach(function(date){
+    const rate=getRateForDate(date);
+    const man=manualEntries.find(e=>e.date===date);
+    const m=monthly.find(e=>e.date===date);
+    const t=db.find(e=>e.date===date);
+    // Priority: manual > monthly > telemetry — never combine
+    let consumed, purchased;
+    if(man&&man.consumption!=null){
+      consumed=man.consumption;
+      purchased=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
+    } else if(m){
+      consumed=m.consumption;
+      purchased=m.purchased;
+    } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
+      consumed=t.avgLoad?t.avgLoad*24:0;
+      purchased=t.gridImport||0;
+    } else { return; }
+    totalGridCost+=purchased*rate;
+    totalSavings+=calcSavings(consumed,purchased,rate);
+  });
+  // Add pre-solar adjusted savings from billing periods
+  billingPeriods.forEach(function(b){
+    if(b.preSolarCost&&b.preSolarCost>0){
+      // The standard savings calc already covers the solar days
+      // Pre-solar correction: add back the saving from isolating solar period
+      // (already factored into adjustedBill — no double counting needed here)
+    }
+  });
+  const days=allDates.size;
+  const avgDailySaved=days?totalSavings/days:0;
+  const daysToROI=avgDailySaved>0?investment/avgDailySaved:0;
+  const roiPct=Math.min(100,totalSavings/investment*100);
+  document.getElementById('costSummaryCard').style.display='block';
+  document.getElementById('costMetrics').innerHTML='<div class="metric"><div class="metric-label">Total grid cost</div><div class="metric-val money">\u20b1'+totalGridCost.toFixed(0)+'</div></div><div class="metric"><div class="metric-label">Total solar saved</div><div class="metric-val battery">\u20b1'+totalSavings.toFixed(0)+'</div></div><div class="metric"><div class="metric-label">Avg daily saving</div><div class="metric-val solar">\u20b1'+avgDailySaved.toFixed(2)+'</div></div><div class="metric"><div class="metric-label">Days tracked</div><div class="metric-val grid">'+days+'</div></div>';
+  document.getElementById('roiCard').style.display='block';
+  document.getElementById('roiBadge').textContent=roiPct.toFixed(1)+'% recovered';
+  document.getElementById('roiBar').style.width=roiPct+'%';
+  document.getElementById('roiTarget').textContent='\u20b1'+investment.toLocaleString();
+  document.getElementById('roiDetails').innerHTML='<div>\ud83d\udcb0 <strong>\u20b1'+totalSavings.toFixed(0)+'</strong> saved - (consumption - grid) x rate per billing period</div><div>\ud83c\udfaf Investment: <strong>\u20b1'+investment.toLocaleString()+'</strong> \u00b7 Remaining: <strong>\u20b1'+Math.max(0,investment-totalSavings).toFixed(0)+'</strong></div><div>\ud83d\udcc5 Est. payback: <strong>'+Math.ceil(daysToROI)+' days</strong> (\u2248'+(daysToROI/365).toFixed(1)+' yrs) at \u20b1'+avgDailySaved.toFixed(2)+'/day avg</div>';
+  renderBilling();renderDailyLog();
+}
+
+function renderDailyLog(){
+  let startStr,endStr,label;
+  if(logMode==='week'){const r=getWeekRange(costOffset);startStr=fmtDate(r.start);endStr=fmtDate(r.end);label=fmtDisp(r.start)+' - '+fmtDisp(r.end);}
+  else{const r=getMonthRange(costOffset);startStr=r.startStr;endStr=r.endStr;label=fmtMonth(r.ym);}
+  document.getElementById('costPeriodLabel').textContent=label;
+  const allDates=new Set([...monthly.map(e=>e.date),...db.map(e=>e.date),...manualEntries.map(e=>e.date)]);
+  const periodDates=[...allDates].filter(d=>d>=startStr&&d<=endStr).sort((a,b)=>b.localeCompare(a));
+  const dailyEmpty=document.getElementById('dailyEmpty');
+  const totalsEl=document.getElementById('dailyTotals');
+  if(!periodDates.length){document.getElementById('dailyRows').innerHTML='';dailyEmpty.style.display='block';totalsEl.style.display='none';return;}
+  dailyEmpty.style.display='none';
+  let totConsumed=0,totGrid=0,totSaved=0;
+  // Helper: get best available data for a date (manual > monthly > telemetry)
+  function getDataForDate(date){
+    const man=manualEntries.find(e=>e.date===date);
+    const m=monthly.find(e=>e.date===date);
+    const t=db.find(e=>e.date===date);
+    // Priority: manual > monthly > telemetry — never mix sources
+    let prod,consum,grid,src;
+    if(man&&man.consumption!=null){
+      prod=man.production!=null?man.production:(m?m.production:(t?t.pvTotal||0:0));
+      consum=man.consumption;
+      grid=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
+      src='manual';
+    } else if(m){
+      prod=m.production;consum=m.consumption;grid=m.purchased;src='monthly';
+    } else if(t){
+      prod=t.pvTotal||0;consum=t.avgLoad?+(t.avgLoad*24).toFixed(1):0;grid=t.gridImport||0;src='telemetry';
+    } else {
+      return{prod:0,consum:null,grid:0,src:'none',hasData:false};
+    }
+    return{prod,consum,grid,src,hasData:true};
+  }
+    document.getElementById('dailyRows').innerHTML=periodDates.map(function(date){
+    const d=getDataForDate(date);
+    const prod=d.prod||0;const consumed=d.consum||0;const grid=d.grid||0;
+    const rate=getRateForDate(date);
+    const saved=calcSavings(consumed,grid,rate);
+    totConsumed+=consumed;totGrid+=grid;totSaved+=saved;
+    const mx=monthly.find(e=>e.date===date);const tx=db.find(e=>e.date===date);
+    const w=mx?classifyWeatherMonthly(mx):(tx?classifyWeather(tx):'unknown');
+    const wBadge=w==='sunny'?'<span class="weather-badge weather-sunny">☀</span>':'<span class="weather-badge weather-cloudy">☁</span>';
+    const srcBadge=d.src==='manual'?'<span style="font-size:9px;color:#7c3aed;font-weight:600"> M</span>':d.src==='telemetry'?'<span style="font-size:9px;color:#898781"> T</span>':'';
+    return '<div class="daily-row"><span style="font-weight:500">'+date+srcBadge+'</span><span>'+wBadge+'</span><span style="color:#eda100">'+(+prod).toFixed(2)+'</span><span style="color:#e34948">'+(+consumed).toFixed(2)+'</span><span style="color:#2a78d6">'+(+grid).toFixed(2)+'</span><span style="color:#1baf7a">₱'+saved.toFixed(0)+'</span></div>';
+  }).join('');
+  totalsEl.style.display='block';
+  totalsEl.innerHTML='<strong>Period totals:</strong> Consumed '+totConsumed.toFixed(1)+'kWh \u00b7 Grid '+totGrid.toFixed(1)+'kWh \u00b7 Solar saved \u20b1'+totSaved.toFixed(0);
+}
+
+function toggleManualForm(){
+  const f=document.getElementById('manualForm');
+  f.style.display=f.style.display==='none'?'block':'none';
+}
+async function saveManualEntry(){
+  const date=document.getElementById('manDate').value;
+  const consum=parseFloat(document.getElementById('manConsum').value);
+  const grid=parseFloat(document.getElementById('manGrid').value);
+  const prod=parseFloat(document.getElementById('manProd').value)||null;
+  if(!date||isNaN(consum)||isNaN(grid)){
+    const el=document.getElementById('manualStatus');
+    el.style.display='block';el.className='alert alert-warn';
+    el.textContent='Date, consumption and grid purchased are required.';return;
+  }
+  const idx=manualEntries.findIndex(e=>e.date===date);
+  const entry={date,consumption:consum,grid,production:prod,source:'manual',updated:new Date().toISOString()};
+  if(idx>=0){manualEntries[idx]=entry;}else{manualEntries.push(entry);}
+  manualEntries.sort((a,b)=>b.date.localeCompare(a.date));
+  await saveDB();
+  const el=document.getElementById('manualStatus');
+  el.style.display='block';el.className='alert alert-success';
+  el.textContent='Saved manual entry for '+date+'.';
+  document.getElementById('manDate').value='';
+  document.getElementById('manConsum').value='';
+  document.getElementById('manGrid').value='';
+  document.getElementById('manProd').value='';
+  setTimeout(function(){el.style.display='none';},2000);
+  renderDailyLog();renderCost();
+}
+function getMonthlyChartData(){
+  const byMonth={};
+  const allDates=new Set([...monthly.map(e=>e.date),...db.map(e=>e.date),...manualEntries.map(e=>e.date)]);
+  [...allDates].sort().forEach(function(date){
+    const ym=date.slice(0,7);
+    if(!byMonth[ym])byMonth[ym]={consumed:0,grid:0,savings:0,gridCost:0};
+    const m=monthly.find(e=>e.date===date);
+    const t=db.find(e=>e.date===date);
+    const man=manualEntries.find(e=>e.date===date);
+    const tValid=t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date);
+    const consumed=man&&man.consumption!=null?man.consumption:m?m.consumption:(tValid&&t.avgLoad?t.avgLoad*24:0);
+    const grid=man&&man.grid!=null?man.grid:m?m.purchased:(tValid?t.gridImport||0:0);
+    const rate=getRateForDate(date);
+    byMonth[ym].consumed+=consumed;
+    byMonth[ym].grid+=grid;
+    byMonth[ym].savings+=calcSavings(consumed,grid,rate);
+    byMonth[ym].gridCost+=grid*rate;
+  });
+  return byMonth;
+}
+
+function getChartData(){
+  const allDates=new Set([...monthly.map(e=>e.date),...db.map(e=>e.date),...manualEntries.map(e=>e.date)]);
+  const sorted=[...allDates].sort();
+  if(!sorted.length)return{groups:{},labels:{},keys:[],isCycle:false};
+  const isCycle=billingPeriods.length>0;
+  const groups={};const labels={};
+  if(isCycle){
+    const periods=[...billingPeriods].sort((a,b)=>a.start.localeCompare(b.start));
+    periods.forEach(function(p){
+      groups[p.start]={consumed:0,grid:0,savings:0,gridCost:0};
+      labels[p.start]=p.start.slice(5)+'–'+p.end.slice(5);
+    });
+    const lastEnd=periods.length?periods[periods.length-1].end:'';
+    if(lastEnd){
+      groups['current']={consumed:0,grid:0,savings:0,gridCost:0};
+      labels['current']='Current';
+    }
+  }
+  // Deduplicate: if a date has monthly summary, skip telemetry for that date
+  // Priority: manual > monthly > telemetry (never combine two sources for same date)
+  const processedDates=new Set();
+  sorted.forEach(function(date){
+    if(processedDates.has(date))return;
+    processedDates.add(date);
+    const man=manualEntries.find(e=>e.date===date);
+    const m=monthly.find(e=>e.date===date);
+    const t=db.find(e=>e.date===date);
+    // Use only ONE source - manual wins, then monthly, then telemetry
+    let consumed, grid;
+    if(man&&man.consumption!=null){
+      consumed=man.consumption;
+      grid=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
+    } else if(m){
+      consumed=m.consumption;
+      grid=m.purchased;
+    } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
+      consumed=t.avgLoad?+(t.avgLoad*24).toFixed(1):0;
+      grid=t.gridImport||0;
+    } else {
+      return;
+    }
+    const rate=getRateForDate(date);
+    let key;
+    if(isCycle){
+      const p=billingPeriods.find(b=>date>=b.start&&date<=b.end);
+      if(p){
+        key=p.start;
+      } else {
+        const lastEnd=[...billingPeriods].sort((a,b)=>a.end.localeCompare(b.end)).slice(-1)[0]?.end||'';
+        if(lastEnd&&date>lastEnd&&groups['current']){key='current';}
+        else return;
+      }
+    }else{
+      key=date.slice(0,7);
+      if(!groups[key]){
+        groups[key]={consumed:0,grid:0,savings:0,gridCost:0};
+        labels[key]=new Date(key+'-01').toLocaleDateString('en-PH',{month:'short',year:'numeric'});
+      }
+    }
+    if(groups[key]){
+      groups[key].consumed+=consumed;
+      groups[key].grid+=grid;
+      groups[key].savings+=calcSavings(consumed,grid,rate);
+      groups[key].gridCost+=grid*rate;
+    }
+  });
+  const keys=Object.keys(groups).sort();
+  return{groups,labels,keys,isCycle};
+}
+
+function renderCharts(){
+  const {groups,labels:cycleLabels,isCycle}=getChartData();
+  const keys=Object.keys(groups).filter(k=>k!=='other').sort();
+  if(groups['other'])keys.push('other');
+  if(!keys.length){document.getElementById('chartSummaryCard').style.display='none';return;}
+  const labels=keys.map(k=>cycleLabels[k]||k);
+  const consumed=keys.map(k=>+groups[k].consumed.toFixed(1));
+  const grid=keys.map(k=>+groups[k].grid.toFixed(1));
+  const solar=keys.map((_,i)=>+Math.max(0,consumed[i]-grid[i]).toFixed(1));
+  const savings=keys.map(k=>+groups[k].savings.toFixed(0));
+  const gridCost=keys.map(k=>+groups[k].gridCost.toFixed(0));
+  const investment=settings.investment||280000;
+  let cumSavings=0;
+  const roiLine=keys.map(k=>{cumSavings+=groups[k].savings;return +cumSavings.toFixed(0);});
+  // Add actual bill dots on ROI chart if available
+  const actualBills=isCycle?keys.map(k=>{const p=billingPeriods.find(b=>b.start===k);return p?p.amount:null;}):keys.map(()=>null);
+
+  if(chartKwhInst)chartKwhInst.destroy();
+  chartKwhInst=new Chart(document.getElementById('chartKwh').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[
+      {label:'Total consumption',data:consumed,backgroundColor:'#fce7e7',borderColor:'#e34948',borderWidth:1.5},
+      {label:'From grid',data:grid,backgroundColor:'#dbeafe',borderColor:'#2a78d6',borderWidth:1.5},
+      {label:'From solar',data:solar,backgroundColor:'#d1fae5',borderColor:'#1baf7a',borderWidth:1.5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10}},title:{display:true,text:'kWh',font:{size:10}}}}}
+  });
+
+  if(chartPesoInst)chartPesoInst.destroy();
+  chartPesoInst=new Chart(document.getElementById('chartPeso').getContext('2d'),{
+    type:'bar',data:{labels,datasets:[
+      {label:'Grid cost paid',data:gridCost,backgroundColor:'#fce7e7',borderColor:'#e34948',borderWidth:1.5},
+      {label:'Solar savings',data:savings,backgroundColor:'#d1fae5',borderColor:'#1baf7a',borderWidth:1.5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:function(v){return'\u20b1'+v.toLocaleString();}},title:{display:true,text:'PHP',font:{size:10}}}}}
+  });
+
+  if(chartRoiInst)chartRoiInst.destroy();
+  document.getElementById('roiTargetChart').textContent=(investment/1000).toFixed(0)+'k';
+  chartRoiInst=new Chart(document.getElementById('chartRoi').getContext('2d'),{
+    type:'line',data:{labels,datasets:[
+      {label:'Cumulative savings',data:roiLine,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#7c3aed',fill:true,tension:0.3},
+      {label:'Investment target',data:keys.map(function(){return investment;}),borderColor:'#e34948',borderWidth:1.5,borderDash:[6,4],pointRadius:0,fill:false}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'bottom',labels:{font:{size:11},boxWidth:12}}},
+      scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:function(v){return'\u20b1'+v.toLocaleString();}},title:{display:true,text:'PHP',font:{size:10}}}}}
+  });
+
+  const totalSaved=roiLine[roiLine.length-1]||0;
+  const roiPct=Math.min(100,totalSaved/investment*100);
+  document.getElementById('chartSummaryCard').style.display='block';
+  document.getElementById('chartSummaryMetrics').innerHTML='<div class="metric"><div class="metric-label">Total solar saved</div><div class="metric-val battery">\u20b1'+totalSaved.toLocaleString()+'</div></div><div class="metric"><div class="metric-label">ROI progress</div><div class="metric-val money">'+roiPct.toFixed(1)+'%</div></div><div class="metric"><div class="metric-label">Remaining</div><div class="metric-val load">\u20b1'+Math.max(0,investment-totalSaved).toLocaleString()+'</div></div><div class="metric"><div class="metric-label">Months tracked</div><div class="metric-val grid">'+keys.length+'</div></div>';
+}
+
+function generateExport(range){
+  if(!db.length&&!monthly.length){alert('No data to export yet.');return;}
+  const now=new Date();
+  let filteredDB=[...db].sort((a,b)=>a.date.localeCompare(b.date));
+  let filteredM=[...monthly].sort((a,b)=>a.date.localeCompare(b.date));
+  let label='';
+  if(range==='recent'){
+    const c=new Date();c.setDate(c.getDate()-14);const cs=fmtDate(c);
+    filteredDB=filteredDB.filter(e=>e.date>=cs);filteredM=filteredM.filter(e=>e.date>=cs);label='Last 14 days';
+  }else if(range==='month'){
+    const ym=now.toISOString().slice(0,7);
+    filteredDB=filteredDB.filter(e=>e.date.startsWith(ym));filteredM=filteredM.filter(e=>e.date.startsWith(ym));label='This month '+ym;
+  }else{
+    const allD=new Set([...filteredDB.map(e=>e.date),...filteredM.map(e=>e.date)]);
+    const sorted=[...allD].sort();label='Full history ('+(sorted[0]||'?')+' to '+(sorted[sorted.length-1]||'?')+')';
+  }
+  const sunny=filteredDB.filter(e=>classifyWeather(e)==='sunny');
+  const cloudy=filteredDB.filter(e=>classifyWeather(e)==='cloudy');
+  const avgHP=Array(24).fill(0).map((_,h)=>{const v=filteredDB.filter(e=>e.hourlyPV).map(e=>e.hourlyPV[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(2):0;});
+  const avgHL=Array(24).fill(0).map((_,h)=>{const v=filteredDB.filter(e=>e.hourlyLoad).map(e=>e.hourlyLoad[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(2):0;});
+  const avgHS=Array(24).fill(0).map((_,h)=>{const v=filteredDB.filter(e=>e.hourlySOC).map(e=>e.hourlySOC[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(1):0;});
+  const avgHP_s=Array(24).fill(0).map((_,h)=>{const v=sunny.filter(e=>e.hourlyPV).map(e=>e.hourlyPV[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(2):0;});
+  const avgHP_c=Array(24).fill(0).map((_,h)=>{const v=cloudy.filter(e=>e.hourlyPV).map(e=>e.hourlyPV[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(2):0;});
+  const pvStartIdx=avgHP.findIndex(v=>v>0.3);
+  const pvStart=pvStartIdx>=0?pvStartIdx:6;
+  const pvEnd=avgHP.map((v,i)=>({v,i})).filter(x=>x.v>0.1).slice(-1)[0]?.i||17;
+  const peakH=avgHP.indexOf(Math.max(...avgHP));
+  const lowSOC=filteredDB.filter(e=>e.minSOC<=25).length;
+  const p=touProfiles[touProfiles.length-1];
+  const touStr=p?(p.rows||[]).map((r,i)=>'  Row '+(i+1)+': '+r.time+' | Power: '+r.power+'W | Min SOC: '+r.soc+'% | Grid: '+(r.grid?'Yes':'No')).join('\n'):'  No TOU profile logged.';
+  const touHist=touProfiles.map((pr,i)=>'  '+pr.date+(i===touProfiles.length-1?' [ACTIVE]':'')+': '+(pr.note||'')).join('\n');
+  const billStr=billingPeriods.map(b=>'  '+b.start+' to '+b.end+': P'+b.rate+'/kWh | Bill P'+b.amount+' | DEYE grid P'+b.deyeCost).join('\n');
+  const mLines=filteredM.slice(-30).map(e=>{const w=classifyWeatherMonthly(e);const rate=getRateForDate(e.date);const saved=calcSavings(e.consumption,e.purchased,rate);return'  '+e.date+' ['+w.toUpperCase()+']: Prod '+e.production+'kWh, Used '+e.consumption+'kWh, Grid '+e.purchased+'kWh, Saved P'+saved.toFixed(0)+' (rate P'+rate+'/kWh)';}).join('\n');
+  const dbLines=filteredDB.filter(e=>!filteredM.find(m=>m.date===e.date)).slice(-15).map(e=>{const w=classifyWeather(e);return'  '+e.date+' ['+w.toUpperCase()+']: PV peak '+e.peakPV+'kW@'+e.pvPeakHour+', SOC '+e.minSOC+'-'+e.maxSOC+'% (floor '+e.minSOCTime+'), grid '+e.gridImport+'kWh, rows '+( e._rowCount||'?');}).join('\n');
+  const avgGrid=filteredDB.length?(filteredDB.reduce((a,e)=>a+e.gridImport,0)/filteredDB.length).toFixed(2):'N/A';
+
+  const txt=[
+    '====================================================',
+    'DEYE SOLAR SYSTEM - AI ANALYSIS EXPORT',
+    'Generated: '+new Date().toLocaleString()+' | Range: '+label,
+    '====================================================',
+    'Inverter: DEYE | Mode: Battery First | Philippines',
+    'Investment: P'+(settings.investment||280000).toLocaleString()+' | Default rate: P'+settings.rate+'/kWh',
+    'NOTE: Savings = (Consumption - Grid purchased) x rate per billing period',
+    'NOTE: PV values at 00:00-02:00 may be sensor noise - actual generation starts ~06:00',
+    '',
+    'MERALCO BILLING PERIODS',
+    billStr||'  None logged.',
+    '',
+    'ACTIVE TOU (effective '+(p?p.date:'unknown')+')',
+    touStr,
+    '',
+    'TOU HISTORY',
+    touHist,
+    '',
+    'WEATHER: Sunny (>=8kWh/day): '+sunny.length+' | Cloudy/typhoon (<8kWh): '+cloudy.length,
+    '',
+    'HOURLY PV - SUNNY DAYS (avg '+sunny.length+' days)',
+    avgHP_s.map((v,h)=>'  '+h.toString().padStart(2,'0')+':00 = '+v+'kW').join('\n'),
+    '',
+    'HOURLY PV - CLOUDY/TYPHOON DAYS (avg '+cloudy.length+' days)',
+    avgHP_c.map((v,h)=>'  '+h.toString().padStart(2,'0')+':00 = '+v+'kW').join('\n'),
+    '',
+    'COMBINED HOURLY AVERAGES',
+    'Hour | Avg PV | Avg Load | Avg SOC',
+    Array(24).fill(0).map((_,h)=>h.toString().padStart(2,'0')+':00 | '+avgHP[h].toFixed(2).padStart(6)+'kW | '+avgHL[h].toFixed(2).padStart(8)+'kW | '+avgHS[h].toFixed(1).padStart(6)+'%').join('\n'),
+    '',
+    'KEY METRICS',
+    '- Real PV window: '+pvStart+':00 - '+pvEnd+':00 | Peak: '+peakH+':00 ('+avgHP[peakH]+'kW avg)',
+    '- Days SOC <=25%: '+lowSOC+' of '+filteredDB.length,
+    '- Overnight load avg (00-06h): '+(avgHL.slice(0,6).reduce((a,v)=>a+v,0)/6).toFixed(2)+'kW',
+    '- Midday load avg (10-16h): '+(avgHL.slice(10,16).reduce((a,v)=>a+v,0)/6).toFixed(2)+'kW',
+    '- Avg daily grid import: '+avgGrid+'kWh',
+    '',
+    'DAILY LOG - MONTHLY SUMMARY (last 30)',
+    mLines||'  No monthly data.',
+    '',
+    'DAILY LOG - TELEMETRY ONLY (includes row count for completeness check)',
+    dbLines||'  All covered by monthly data.',
+    '',
+    '====================================================',
+    'INSTRUCTIONS FOR AI ASSISTANT',
+    '====================================================',
+    'DEYE solar inverter, Philippines, Battery First mode.',
+    'Savings = (consumption - grid purchased) x rate per billing period.',
+    'IGNORE PV values at 00:00-02:00 - these are sensor noise, not real generation.',
+    '',
+    'CRITICAL: ONE TOU setting for BOTH weather conditions.',
+    '- Cloudy/typhoon: low PV - must conserve battery overnight',
+    '- Sunny: strong PV - maximize solar, minimize grid',
+    '- Consider trade-off: higher overnight SOC floor protects cloudy days',
+    '  but may cause early 100% SOC and solar clipping on sunny days',
+    '',
+    'Analyze:',
+    '1. TOU performance on sunny vs cloudy days',
+    '2. Which rows fail on cloudy days (SOC drains too fast)',
+    '3. Which rows miss PV window on sunny days',
+    '4. Suggest ONE balanced TOU (exact times + SOC per row)',
+    '5. Validate against BOTH hourly PV profiles',
+    '6. State trade-offs clearly - especially overnight SOC floor vs solar clipping risk',
+    '===================================================='
+  ].join('\n');
+
+  currentExportText=txt;
+  document.getElementById('exportText').value=txt;
+  document.getElementById('exportLabel').textContent=label+' - '+txt.length+' chars';
+  document.getElementById('exportOutput').style.display='block';
+}
+
+function copyExport(){
+  document.getElementById('exportText').select();document.execCommand('copy');
+  const btn=event.target.closest('button');const orig=btn.innerHTML;
+  btn.innerHTML='<i class="ti ti-check"></i> Copied!';setTimeout(function(){btn.innerHTML=orig;},2000);
+}
+function downloadExport(){
+  const blob=new Blob([currentExportText],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='solar_analysis_'+new Date().toISOString().slice(0,10)+'.txt';a.click();
+}
+
+function renderInsights(){
+  if(!db.length){document.getElementById('insightCard').style.display='none';return;}
+  const card=document.getElementById('insightCard');card.style.display='block';
+  const sorted=[...db].sort((a,b)=>a.date.localeCompare(b.date));
+  const avgHP=Array(24).fill(0).map((_,h)=>{const v=sorted.filter(e=>e.hourlyPV).map(e=>e.hourlyPV[h]||0);return v.length?+(v.reduce((a,x)=>a+x,0)/v.length).toFixed(2):0;});
+  const pvStartIdx=avgHP.findIndex(v=>v>0.3);const pvStart=pvStartIdx>=0?pvStartIdx:6;
+  const pvEnd=avgHP.map((v,i)=>({v,i})).filter(x=>x.v>0.1).slice(-1)[0]?.i||17;
+  const peakH=avgHP.indexOf(Math.max(...avgHP));
+  const lowSOC=db.filter(e=>e.minSOC<=25);
+  const avgGrid=(db.reduce((a,e)=>a+e.gridImport,0)/db.length).toFixed(2);
+  const sunnyDays=db.filter(e=>classifyWeather(e)==='sunny').length;
+  document.getElementById('insightContent').innerHTML=
+    '<div class="insight-row"><i class="ti ti-solar-panel" style="color:#eda100;font-size:18px;margin-top:1px"></i><div><div style="font-weight:500;font-size:13px">PV generation window</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Real solar starts <strong>'+pvStart+':00</strong>, peaks <strong>'+peakH+':00</strong> ('+avgHP[peakH]+'kW avg), ends ~<strong>'+pvEnd+':00</strong>.</div></div></div>'+
+    '<div class="insight-row"><i class="ti ti-cloud" style="color:#2a78d6;font-size:18px;margin-top:1px"></i><div><div style="font-weight:500;font-size:13px">Weather breakdown</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">\u2600 <strong>'+sunnyDays+'</strong> sunny \u00b7 \u2601 <strong>'+(db.length-sunnyDays)+'</strong> cloudy/typhoon out of '+db.length+' days.</div></div></div>'+
+    '<div class="insight-row"><i class="ti ti-battery" style="color:#1baf7a;font-size:18px;margin-top:1px"></i><div><div style="font-weight:500;font-size:13px">SOC floor hits</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">'+lowSOC.length+' of '+db.length+' days hit \u226425% SOC.'+(lowSOC.length?' At: '+lowSOC.map(e=>e.minSOCTime).join(', ')+'.':' Floor comfortable.')+'</div></div></div>'+
+    '<div class="insight-row"><i class="ti ti-plug" style="color:#2a78d6;font-size:18px;margin-top:1px"></i><div><div style="font-weight:500;font-size:13px">Grid dependency</div><div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Avg daily grid: <strong>'+avgGrid+' kWh</strong>. '+(parseFloat(avgGrid)>2?'Consider TOU adjustments.':'Good self-consumption.')+'</div></div></div>';
+}
+
+function exportBackup(){
+  if(!db.length&&!monthly.length&&!touProfiles.length){alert('Nothing to backup yet.');return;}
+  const bk={version:6,exported:new Date().toISOString(),db,monthly,touProfiles,settings,billingPeriods,manualEntries};
+  const blob=new Blob([JSON.stringify(bk,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='solar_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  showBackupStatus('Backup downloaded - '+db.length+' telemetry + '+monthly.length+' monthly days.','success');
+}
+async function importBackup(input){
+  const f=input.files[0];if(!f)return;
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      const bk=JSON.parse(e.target.result);
+      if(!bk.db||!Array.isArray(bk.db))throw new Error('Invalid backup file.');
+      let added=0,updated=0;
+      bk.db.forEach(function(entry){const idx=db.findIndex(e=>e.date===entry.date);if(idx>=0){db[idx]=entry;updated++;}else{db.push(entry);added++;}});
+      db.sort((a,b)=>b.date.localeCompare(a.date));
+      if(bk.monthly&&bk.monthly.length){bk.monthly.forEach(function(entry){const idx=monthly.findIndex(e=>e.date===entry.date);if(idx>=0){monthly[idx]=entry;}else{monthly.push(entry);}});monthly.sort((a,b)=>b.date.localeCompare(a.date));}
+      if(bk.touProfiles&&bk.touProfiles.length&&confirm('Restore TOU profiles?'))touProfiles=bk.touProfiles;
+      if(bk.settings)settings=Object.assign({},settings,bk.settings);
+      if(bk.billingPeriods&&bk.billingPeriods.length&&confirm('Restore billing periods?'))billingPeriods=bk.billingPeriods;
+      if(bk.manualEntries&&bk.manualEntries.length&&confirm('Restore manual entries?'))manualEntries=bk.manualEntries;
+      await saveDB();renderAll();loadSettingsUI();updateCount();
+      showBackupStatus('Done - '+added+' new + '+updated+' updated. '+monthly.length+' monthly days.','success');
+    }catch(err){showBackupStatus('Import failed: '+err.message,'warn');}
+  };
+  reader.readAsText(f);input.value='';
+}
+function showBackupStatus(msg,type){
+  const el=document.getElementById('backupStatus');el.style.display='block';
+  el.className='alert alert-'+(type==='success'?'success':'warn');el.textContent=msg;
+}
+
+document.addEventListener('DOMContentLoaded',function(){loadDB();});
+</script>
+</div>
+</body>
+</html>
