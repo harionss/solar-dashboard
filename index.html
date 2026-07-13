@@ -620,7 +620,7 @@ async function loadDB(){
     monthly.sort((a,b)=>b.date.localeCompare(a.date));
   }catch(e){console.error(e);initDefaultTou();}
   renderAll();
-  setTimeout(()=>showQuickUpload(),600);
+  if(!db.length&&!monthly.length){loadFromGitHub();}
 }
 
 function initDefaultTou(){
@@ -1060,10 +1060,8 @@ async function addTouProfile(){
 async function deleteTouProfile(i){if(!confirm('Remove?'))return;touProfiles.splice(i,1);await saveDB();renderTou();}
 
 async function saveSettings(){
-  const rate=parseFloat(document.getElementById('meralcoRate').value);
   const inv=parseFloat(document.getElementById('solarInvestment').value);
-  if(isNaN(rate)||rate<=0){alert('Enter a valid rate.');return;}
-  settings.rate=rate;if(!isNaN(inv)&&inv>0)settings.investment=inv;
+  if(!isNaN(inv)&&inv>0)settings.investment=inv;
   await saveDB();
   document.getElementById('settingsSaved').style.display='block';
   setTimeout(function(){document.getElementById('settingsSaved').style.display='none';},2000);
