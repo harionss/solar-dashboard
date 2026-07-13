@@ -393,7 +393,7 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
     <div class="form-group" style="margin-bottom:0.75rem">
       <label class="form-label">GitHub Personal Access Token</label>
       <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;max-width:340px;font-family:monospace;font-size:12px">
-      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Stored only in your browser. Generate at GitHub → Settings → Developer settings → Personal access tokens (repo scope).</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Stored in your browser. Generate at GitHub → Settings → Developer settings → Personal access tokens (repo scope).</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button id="pushGithubBtn" class="btn btn-primary" onclick="pushToGitHub()" style="display:flex;align-items:center;gap:6px"><i class="ti ti-brand-github"></i> Push to GitHub</button>
@@ -568,6 +568,10 @@ function applyReadOnly(){
   if(billingForm)billingForm.style.display='none';
   const pushBtn=document.getElementById('pushGithubBtn');
   if(pushBtn)pushBtn.style.display=readOnly?'none':'flex';
+  // Restore saved token
+  const savedToken=localStorage.getItem('gh_token');
+  const tokenInp=document.getElementById('githubToken');
+  if(tokenInp&&savedToken&&!tokenInp.value)tokenInp.value=savedToken;
 }
 
 function updateMonthlyCount(){
@@ -617,7 +621,7 @@ async function loadDB(){
     monthly.sort((a,b)=>b.date.localeCompare(a.date));
   }catch(e){console.error(e);initDefaultTou();}
   renderAll();
-  if(!db.length&&!monthly.length){loadFromGitHub();}
+  setTimeout(()=>showQuickUpload(),600);
 }
 
 function initDefaultTou(){
@@ -653,9 +657,9 @@ function showTab(t){
   if(t==='charts')renderCharts();
   if(t==='export')renderInsights();
 }
-function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();applyReadOnly();}
+function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();}
 function updateCount(){document.getElementById('entryCount').textContent=db.length+' day'+(db.length!==1?'s':'');}
-function loadSettingsUI(){document.getElementById('solarInvestment').value=settings.investment||'';}
+function loadSettingsUI(){const el=document.getElementById('solarInvestment');if(el)el.value=settings.investment||'';}
 
 function classifyWeather(e){const m=monthly.find(x=>x.date===e.date);const prod=m?m.production:(e.pvTotal||0);return(prod<8||e.peakPV<1.5)?'cloudy':'sunny';}
 function classifyWeatherMonthly(m){return m.production<8?'cloudy':'sunny';}
