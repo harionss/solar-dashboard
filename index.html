@@ -656,7 +656,7 @@ function showTab(t){
   if(t==='charts')renderCharts();
   if(t==='export')renderInsights();
 }
-function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();}
+function renderAll(){renderHistory();renderTou();renderCost();updateCount();loadSettingsUI();updateMonthlyCount();applyReadOnly();}
 function updateCount(){document.getElementById('entryCount').textContent=db.length+' day'+(db.length!==1?'s':'');}
 function loadSettingsUI(){
   const inv=settings.investment||280000;
@@ -1528,6 +1528,11 @@ function generateExport(range){
     '4. Suggest ONE balanced TOU (exact times + SOC per row)',
     '5. Validate against BOTH hourly PV profiles',
     '6. State trade-offs clearly - especially overnight SOC floor vs solar clipping risk',
+    '',
+    'AREA: Meralco Paco 423VY (Philippines)',
+    'OUTAGE CHECK: Search meralco.com.ph and ngcp.com.ph for any scheduled power interruptions',
+    'for area Paco 423VY. Include findings in your analysis and recommend TOU adjustments',
+    '(e.g. raise SOC floor night before a known outage window).',
     '===================================================='
   ].join('\n');
 
