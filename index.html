@@ -1043,18 +1043,19 @@ function renderTou(){
   const sorted=[...touProfiles].reverse();
   const recent=sorted.slice(0,3);
   const older=sorted.slice(3);
-  const mkRow=(pr,i)=>{
+  const mkRow=function(pr){
     const origIdx=touProfiles.indexOf(pr);
-    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(origIdx===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+'<span style="color:var(--text-muted);font-size:12px;margin-left:8px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+origIdx+')"><i class="ti ti-trash"></i></button></div>';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(origIdx===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+' <span style="color:var(--text-muted);font-size:12px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+origIdx+')"><i class="ti ti-trash"></i></button></div>';
   };
   let histHtml=recent.map(mkRow).join('');
   if(older.length){
     histHtml+='<div id="touOlderWrap" style="display:none">'+older.map(mkRow).join('')+'</div>';
-    histHtml+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="var w=document.getElementById('touOlderWrap');w.style.display=w.style.display==='none'?'block':'none';this.textContent=w.style.display==='none'?'Show '+older.length+' older':'Hide older'">Show '+older.length+' older</button>';
+    histHtml+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="toggleTouOlder(this,'+older.length+')">Show '+older.length+' older</button>';
   }
   document.getElementById('touProfileList').innerHTML=histHtml;
 }
 let touEditIdx=-1;
+function toggleTouOlder(btn,count){var w=document.getElementById("touOlderWrap");var show=w.style.display==="none";w.style.display=show?"block":"none";btn.textContent=show?"Hide older":"Show "+count+" older";}
 function editTouRow(i){touEditIdx=i;renderTou();}
 function cancelTouEdit(){touEditIdx=-1;renderTou();}
 async function saveTouRow(i){
