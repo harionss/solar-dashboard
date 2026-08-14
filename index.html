@@ -127,7 +127,7 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-top:0.5rem">
   <div>
     <div style="font-size:18px;font-weight:500">Solar dashboard</div>
-    <div style="font-size:12px;color:var(--text-muted)">DEYE inverter &middot; Battery first mode</div>
+    <div style="font-size:12px;color:var(--text-muted)">DEYE inverter &middot; <span id="modeLabel">Battery first mode</span></div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn btn-sm" onclick="showQuickUpload()" title="Quick upload" id="quickUploadBtn"><i class="ti ti-cloud-upload"></i></button>
@@ -241,7 +241,8 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
       <div class="section-title" style="margin:0">Active TOU &mdash; <span id="activeTouDate"></span></div>
-      <span class="badge badge-green">Battery first</span>
+      <span id="modeBadge" class="badge badge-green">Battery first</span>
+      <button class="btn btn-sm" onclick="toggleMode()" style="font-size:11px;margin-left:6px" title="Toggle inverter mode"><i class="ti ti-switch-horizontal"></i></button>
     </div>
     <div class="tou-row tou-hdr"><span>Start</span><span>Power</span><span>Min SOC</span><span>Grid chg</span><span>Purpose</span></div>
     <div id="touRows"></div>
@@ -461,7 +462,7 @@ function openDB(){
   });
 }
 
-let db=[],monthly=[],touProfiles=[],settings={rate:15.676,investment:280000},billingPeriods=[];
+let db=[],monthly=[],touProfiles=[],settings={rate:15.676,investment:280000,mode:'battery'},billingPeriods=[];
 let pendingSheets=[],previewIdx=0,dayChartInst=null,currentExportText='';
 let manualEntries=[];
 let historyOffset=0,historyMode='week',costOffset=0,logMode='week';
@@ -543,8 +544,6 @@ function downloadBackup(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='data.json';a.click();
 }
-
-function toggleReadOnly(){readOnly=!readOnly;applyReadOnly();}
 
 function applyReadOnly(){
   const btn=document.getElementById('readonlyToggle');
@@ -643,7 +642,11 @@ function normDate(d){
   return m?m[1]:null;
 }
 function getRateForDate(d){const p=billingPeriods.find(b=>d>=b.start&&d<=b.end);return p?p.rate:(settings.rate||15.676);}
-function calcSavings(consumed,purchased,rate){return Math.max(0,(consumed-purchased)*rate);}
+function calcSavings(consumed,purchased,rate,production,discharge){
+  production=production||0;discharge=discharge||0;
+  const gridForHouse=Math.max(0,consumed-production-discharge);
+  return Math.max(0,(consumed-gridForHouse)*rate);
+}
 
 function showTab(t){
   const tabs=['cost','charts','history','tou','upload','export'];
@@ -664,6 +667,10 @@ function loadSettingsUI(){
   if(el)el.value=inv;
   const roiChart=document.getElementById('roiTargetChart');
   if(roiChart)roiChart.textContent=inv.toLocaleString();
+  // Restore mode
+  const isBatt=(settings.mode||'battery')==='battery';
+  const lbl=document.getElementById('modeLabel');if(lbl)lbl.textContent=isBatt?'Battery first mode':'Load first mode';
+  const bdg=document.getElementById('modeBadge');if(bdg)bdg.textContent=isBatt?'Battery first':'Load first';
 }
 
 function classifyWeather(e){const m=monthly.find(x=>x.date===e.date);const prod=m?m.production:(e.pvTotal||0);return(prod<8||e.peakPV<1.5)?'cloudy':'sunny';}
@@ -921,6 +928,8 @@ function summarize(data){
     gridExport:+(data.filter(r=>r.grid<0).reduce((a,r)=>a+Math.abs(r.grid)*5/60,0)).toFixed(2),
     pvTotal:+(data.reduce((a,r)=>a+r.pv*5/60,0)).toFixed(2),
     pvPeakHour:getPeakHour(data),minSOCTime:getMinSOCTime(data),
+    battCharge:+(data.filter(r=>r.battery>0).reduce((a,r)=>a+r.battery*5/60,0)).toFixed(2),
+    battDischarge:+(data.filter(r=>r.battery<0).reduce((a,r)=>a+Math.abs(r.battery)*5/60,0)).toFixed(2),
     hourlyPV:hrly(function(r){return r.pv;}),
     hourlyLoad:hrly(function(r){return r.consumption;}),
     hourlySOC:Array(24).fill(0).map(function(_,h){const pts=data.filter(function(_,i){return Math.floor(i*5/60)===h;});return pts.length?+(pts.reduce(function(a,r){return a+r.soc;},0)/pts.length).toFixed(1):0;})
@@ -1031,7 +1040,19 @@ function renderTou(){
     }
     return '<div class="tou-row"><span style="font-weight:500">'+r.time+'</span><span>'+r.power.toLocaleString()+'W</span><span style="color:#1baf7a;font-weight:500">'+r.soc+'%</span><span>'+(r.grid?'<span class="badge badge-blue">Yes</span>':'<span style="color:var(--text-muted);font-size:12px">No</span>')+'</span><span style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:space-between">'+(purposes[i]||'')+'<button class="btn btn-sm" onclick="editTouRow('+i+')" style="margin-left:8px;font-size:11px"><i class="ti ti-pencil"></i></button></span></div>';
   }).join('');
-  document.getElementById('touProfileList').innerHTML=touProfiles.map((pr,i)=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(i===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+'<span style="color:var(--text-muted);font-size:12px;margin-left:8px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+i+')"><i class="ti ti-trash"></i></button></div>').join('');
+  const sorted=[...touProfiles].reverse();
+  const recent=sorted.slice(0,3);
+  const older=sorted.slice(3);
+  const mkRow=(pr,i)=>{
+    const origIdx=touProfiles.indexOf(pr);
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(origIdx===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+'<span style="color:var(--text-muted);font-size:12px;margin-left:8px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+origIdx+')"><i class="ti ti-trash"></i></button></div>';
+  };
+  let histHtml=recent.map(mkRow).join('');
+  if(older.length){
+    histHtml+='<div id="touOlderWrap" style="display:none">'+older.map(mkRow).join('')+'</div>';
+    histHtml+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="var w=document.getElementById('touOlderWrap');w.style.display=w.style.display==='none'?'block':'none';this.textContent=w.style.display==='none'?'Show '+older.length+' older':'Hide older'">Show '+older.length+' older</button>';
+  }
+  document.getElementById('touProfileList').innerHTML=histHtml;
 }
 let touEditIdx=-1;
 function editTouRow(i){touEditIdx=i;renderTou();}
@@ -1043,7 +1064,21 @@ async function saveTouRow(i){
   const soc=parseInt(document.getElementById('editSoc').value);
   const grid=document.getElementById('editGrid').checked;
   if(!time||isNaN(power)||isNaN(soc)){alert('Fill in all fields.');return;}
+  // Auto-snapshot: if rows actually changed, save a new history entry
+  const oldRows=JSON.stringify(p.rows);
   p.rows[i]={time,power,soc,grid};
+  const newRows=JSON.stringify(p.rows);
+  if(oldRows!==newRows){
+    const today=new Date().toISOString().slice(0,10);
+    // Update existing entry for today or add new one
+    const last=touProfiles[touProfiles.length-1];
+    if(last.date===today){
+      last.rows=JSON.parse(newRows);
+    } else {
+      touProfiles.push({date:today,note:'Auto-saved',rows:JSON.parse(newRows)});
+      touProfiles.sort((a,b)=>a.date.localeCompare(b.date));
+    }
+  }
   touEditIdx=-1;
   await saveDB();renderTou();
 }
@@ -1174,12 +1209,12 @@ function renderCost(){
     } else if(m){
       consumed=m.consumption;
       purchased=m.purchased;
-    } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
+    } else if(t){
       consumed=t.avgLoad?t.avgLoad*24:0;
       purchased=t.gridImport||0;
     } else { return; }
     totalGridCost+=purchased*rate;
-    totalSavings+=calcSavings(consumed,purchased,rate);
+    totalSavings+=calcSavings(consumed,purchased,rate,prod,discharge);
   });
   // Add pre-solar adjusted savings from billing periods
   billingPeriods.forEach(function(b){
@@ -1240,7 +1275,7 @@ function renderDailyLog(){
     const d=getDataForDate(date);
     const prod=d.prod||0;const consumed=d.consum||0;const grid=d.grid||0;
     const rate=getRateForDate(date);
-    const saved=calcSavings(consumed,grid,rate);
+    const saved=calcSavings(consumed,grid,rate,prod||0,discharge||0);
     totConsumed+=consumed;totGrid+=grid;totSaved+=saved;
     const mx=monthly.find(e=>e.date===date);const tx=db.find(e=>e.date===date);
     const w=mx?classifyWeatherMonthly(mx):(tx?classifyWeather(tx):'unknown');
@@ -1364,7 +1399,7 @@ function getChartData(){
     if(groups[key]){
       groups[key].consumed+=consumed;
       groups[key].grid+=grid;
-      groups[key].savings+=calcSavings(consumed,grid,rate);
+      groups[key].savings+=calcSavings(consumed,grid,rate,prodVal||0,dischargeVal||0);
       groups[key].gridCost+=grid*rate;
     }
   });
@@ -1460,7 +1495,7 @@ function generateExport(range){
   const touStr=p?(p.rows||[]).map((r,i)=>'  Row '+(i+1)+': '+r.time+' | Power: '+r.power+'W | Min SOC: '+r.soc+'% | Grid: '+(r.grid?'Yes':'No')).join('\n'):'  No TOU profile logged.';
   const touHist=touProfiles.map((pr,i)=>'  '+pr.date+(i===touProfiles.length-1?' [ACTIVE]':'')+': '+(pr.note||'')).join('\n');
   const billStr=billingPeriods.map(b=>'  '+b.start+' to '+b.end+': P'+b.rate+'/kWh | Bill P'+b.amount+' | DEYE grid P'+b.deyeCost).join('\n');
-  const mLines=filteredM.slice(-30).map(e=>{const w=classifyWeatherMonthly(e);const rate=getRateForDate(e.date);const saved=calcSavings(e.consumption,e.purchased,rate);return'  '+e.date+' ['+w.toUpperCase()+']: Prod '+e.production+'kWh, Used '+e.consumption+'kWh, Grid '+e.purchased+'kWh, Saved P'+saved.toFixed(0)+' (rate P'+rate+'/kWh)';}).join('\n');
+  const mLines=filteredM.slice(-30).map(e=>{const w=classifyWeatherMonthly(e);const rate=getRateForDate(e.date);const saved=calcSavings(e.consumption,e.purchased,rate,e.production||0,e.discharge||0);return'  '+e.date+' ['+w.toUpperCase()+']: Prod '+e.production+'kWh, Used '+e.consumption+'kWh, Grid '+e.purchased+'kWh, Saved P'+saved.toFixed(0)+' (rate P'+rate+'/kWh)';}).join('\n');
   const dbLines=filteredDB.filter(e=>!filteredM.find(m=>m.date===e.date)).slice(-15).map(e=>{const w=classifyWeather(e);return'  '+e.date+' ['+w.toUpperCase()+']: PV peak '+e.peakPV+'kW@'+e.pvPeakHour+', SOC '+e.minSOC+'-'+e.maxSOC+'% (floor '+e.minSOCTime+'), grid '+e.gridImport+'kWh, rows '+( e._rowCount||'?');}).join('\n');
   const avgGrid=filteredDB.length?(filteredDB.reduce((a,e)=>a+e.gridImport,0)/filteredDB.length).toFixed(2):'N/A';
 
@@ -1469,7 +1504,7 @@ function generateExport(range){
     'DEYE SOLAR SYSTEM - AI ANALYSIS EXPORT',
     'Generated: '+new Date().toLocaleString()+' | Range: '+label,
     '====================================================',
-    'Inverter: DEYE | Mode: Battery First | Philippines',
+    'Inverter: DEYE | Mode: '+(settings.mode==='battery'?'Battery First':'Load First')+' | Philippines',
     'Investment: P'+(settings.investment||280000).toLocaleString()+' | Default rate: P'+settings.rate+'/kWh',
     'NOTE: Savings = (Consumption - Grid purchased) x rate per billing period',
     'NOTE: PV values at 00:00-02:00 may be sensor noise - actual generation starts ~06:00',
@@ -1511,7 +1546,7 @@ function generateExport(range){
     '====================================================',
     'INSTRUCTIONS FOR AI ASSISTANT',
     '====================================================',
-    'DEYE solar inverter, Philippines, Battery First mode.',
+    'DEYE solar inverter, Philippines, '+(settings.mode==='battery'?'Battery First':'Load First')+' mode.',
     'Savings = (consumption - grid purchased) x rate per billing period.',
     'IGNORE PV values at 00:00-02:00 - these are sensor noise, not real generation.',
     '',
