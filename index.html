@@ -1203,14 +1203,16 @@ function renderCost(){
     const m=monthly.find(e=>e.date===date);
     const t=db.find(e=>e.date===date);
     // Priority: manual > monthly > telemetry — never combine
-    let consumed, purchased;
+    let consumed=0,purchased=0,prod=0,discharge=0;
     if(man&&man.consumption!=null){
       consumed=man.consumption;
       purchased=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
+      prod=m?m.production||0:0;discharge=m?m.discharge||0:0;
     } else if(m){
       consumed=m.consumption;
       purchased=m.purchased;
-    } else if(t){
+      prod=m.production||0;discharge=m.discharge||0;
+    } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
       consumed=t.avgLoad?t.avgLoad*24:0;
       purchased=t.gridImport||0;
     } else { return; }
