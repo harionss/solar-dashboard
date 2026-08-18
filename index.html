@@ -1276,7 +1276,9 @@ function renderDailyLog(){
     const d=getDataForDate(date);
     const prod=d.prod||0;const consumed=d.consum||0;const grid=d.grid||0;
     const rate=getRateForDate(date);
-    const saved=calcSavings(consumed,grid,rate,prod||0,discharge||0);
+    const mx2=monthly.find(e=>e.date===date);
+    const discharge2=mx2?mx2.discharge||0:0;
+    const saved=calcSavings(consumed,grid,rate,prod||0,discharge2);
     totConsumed+=consumed;totGrid+=grid;totSaved+=saved;
     const mx=monthly.find(e=>e.date===date);const tx=db.find(e=>e.date===date);
     const w=mx?classifyWeatherMonthly(mx):(tx?classifyWeather(tx):'unknown');
