@@ -131,7 +131,7 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <button class="btn btn-sm" onclick="showQuickUpload()" title="Quick upload" id="quickUploadBtn"><i class="ti ti-cloud-upload"></i></button>
-    <button class="btn btn-sm" id="readonlyToggle" onclick="toggleReadOnly()" title="Toggle read-only mode" style="font-size:11px"><i class="ti ti-eye"></i> View</button>
+    <button class="btn btn-sm" id="readonlyToggle" onclick="toggleReadOnly()" style="font-size:11px"><i class="ti ti-eye"></i> View</button>
     <div class="tag"><i class="ti ti-bolt"></i><span id="entryCount">0 days</span></div>
   </div>
 </div>
@@ -251,7 +251,7 @@ select,input[type=text],input[type=number],input[type=date]{width:100%;padding:6
 
 <div id="readonlyBanner" style="display:none;background:#eff6ff;border:0.5px solid #93c5fd;border-radius:var(--radius);padding:10px 14px;margin-bottom:1rem;font-size:13px;color:#1a56db">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-    <span><i class="ti ti-eye"></i> <strong>View-only mode</strong> — data loaded from GitHub. Switch to full mode to edit.</span>
+    <span><i class="ti ti-eye"></i> <strong>View-only mode</strong> — data loaded from GitHub.</span>
     <button class="btn btn-sm btn-primary" onclick="toggleReadOnly()"><i class="ti ti-pencil"></i> Full mode</button>
   </div>
 </div>
@@ -525,15 +525,18 @@ async function pushToGitHub(){
     if(res.ok){
       btn.innerHTML='<i class="ti ti-check"></i> Pushed!';
       btn.style.background='#1baf7a';btn.style.color='#fff';
-      status.style.display='block';status.className='alert alert-success';status.textContent='Data pushed successfully! Other devices will sync on next refresh.';
+      status.style.display='block';status.className='alert alert-success';
+      status.textContent='Data pushed! Other devices will sync on next refresh.';
       setTimeout(()=>{btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';btn.style.background='';btn.style.color='';},3000);
     }else{
       const err=await res.json();
-      status.style.display='block';status.className='alert alert-danger';status.textContent='Push failed: '+(err.message||res.status)+'. Check your token.';
+      status.style.display='block';status.className='alert alert-danger';
+      status.textContent='Push failed: '+(err.message||res.status)+'. Check your token.';
       btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';
     }
   }catch(e){
-    status.style.display='block';status.className='alert alert-danger';status.textContent='Push error: '+e.message;
+    status.style.display='block';status.className='alert alert-danger';
+    status.textContent='Push error: '+e.message;
     btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-github"></i> Push to GitHub';
   }
 }
@@ -544,6 +547,23 @@ function downloadBackup(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='data.json';a.click();
 }
+
+function toggleMode(){
+  settings.mode=settings.mode==='battery'?'load':'battery';
+  saveDB();
+  const isBatt=settings.mode==='battery';
+  const el=document.getElementById('modeLabel');if(el)el.textContent=isBatt?'Battery first mode':'Load first mode';
+  const b=document.getElementById('modeBadge');if(b)b.textContent=isBatt?'Battery first':'Load first';
+}
+
+function toggleTouOlder(btn,count){
+  var w=document.getElementById('touOlderWrap');
+  var show=w.style.display==='none';
+  w.style.display=show?'block':'none';
+  btn.textContent=show?'Hide older':'Show '+count+' older';
+}
+
+function toggleReadOnly(){readOnly=!readOnly;applyReadOnly();}
 
 function applyReadOnly(){
   const btn=document.getElementById('readonlyToggle');
@@ -642,11 +662,7 @@ function normDate(d){
   return m?m[1]:null;
 }
 function getRateForDate(d){const p=billingPeriods.find(b=>d>=b.start&&d<=b.end);return p?p.rate:(settings.rate||15.676);}
-function calcSavings(consumed,purchased,rate,production,discharge){
-  production=production||0;discharge=discharge||0;
-  const gridForHouse=Math.max(0,consumed-production-discharge);
-  return Math.max(0,(consumed-gridForHouse)*rate);
-}
+function calcSavings(consumed,purchased,rate){return Math.max(0,(consumed-purchased)*rate);}
 
 function showTab(t){
   const tabs=['cost','charts','history','tou','upload','export'];
@@ -667,7 +683,6 @@ function loadSettingsUI(){
   if(el)el.value=inv;
   const roiChart=document.getElementById('roiTargetChart');
   if(roiChart)roiChart.textContent=inv.toLocaleString();
-  // Restore mode
   const isBatt=(settings.mode||'battery')==='battery';
   const lbl=document.getElementById('modeLabel');if(lbl)lbl.textContent=isBatt?'Battery first mode':'Load first mode';
   const bdg=document.getElementById('modeBadge');if(bdg)bdg.textContent=isBatt?'Battery first':'Load first';
@@ -1040,22 +1055,21 @@ function renderTou(){
     }
     return '<div class="tou-row"><span style="font-weight:500">'+r.time+'</span><span>'+r.power.toLocaleString()+'W</span><span style="color:#1baf7a;font-weight:500">'+r.soc+'%</span><span>'+(r.grid?'<span class="badge badge-blue">Yes</span>':'<span style="color:var(--text-muted);font-size:12px">No</span>')+'</span><span style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:space-between">'+(purposes[i]||'')+'<button class="btn btn-sm" onclick="editTouRow('+i+')" style="margin-left:8px;font-size:11px"><i class="ti ti-pencil"></i></button></span></div>';
   }).join('');
-  const sorted=[...touProfiles].reverse();
-  const recent=sorted.slice(0,3);
-  const older=sorted.slice(3);
-  const mkRow=function(pr){
+  const touSorted=[...touProfiles].reverse();
+  const touRecent=touSorted.slice(0,3);
+  const touOlder=touSorted.slice(3);
+  const mkTouRow=function(pr){
     const origIdx=touProfiles.indexOf(pr);
     return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid var(--border)"><div><span style="font-weight:500;font-size:13px">'+pr.date+'</span>'+(origIdx===touProfiles.length-1?'<span class="badge badge-green" style="margin-left:6px">Active</span>':'')+' <span style="color:var(--text-muted);font-size:12px">'+(pr.note||'')+'</span></div><button class="btn btn-sm" onclick="deleteTouProfile('+origIdx+')"><i class="ti ti-trash"></i></button></div>';
   };
-  let histHtml=recent.map(mkRow).join('');
-  if(older.length){
-    histHtml+='<div id="touOlderWrap" style="display:none">'+older.map(mkRow).join('')+'</div>';
-    histHtml+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="toggleTouOlder(this,'+older.length+')">Show '+older.length+' older</button>';
+  let touHistHtml=touRecent.map(mkTouRow).join('');
+  if(touOlder.length){
+    touHistHtml+='<div id="touOlderWrap" style="display:none">'+touOlder.map(mkTouRow).join('')+'</div>';
+    touHistHtml+='<button class="btn btn-sm" style="margin-top:6px;font-size:11px" onclick="toggleTouOlder(this,'+touOlder.length+')">Show '+touOlder.length+' older</button>';
   }
-  document.getElementById('touProfileList').innerHTML=histHtml;
+  document.getElementById('touProfileList').innerHTML=touHistHtml;
 }
 let touEditIdx=-1;
-function toggleTouOlder(btn,count){var w=document.getElementById("touOlderWrap");var show=w.style.display==="none";w.style.display=show?"block":"none";btn.textContent=show?"Hide older":"Show "+count+" older";}
 function editTouRow(i){touEditIdx=i;renderTou();}
 function cancelTouEdit(){touEditIdx=-1;renderTou();}
 async function saveTouRow(i){
@@ -1065,20 +1079,13 @@ async function saveTouRow(i){
   const soc=parseInt(document.getElementById('editSoc').value);
   const grid=document.getElementById('editGrid').checked;
   if(!time||isNaN(power)||isNaN(soc)){alert('Fill in all fields.');return;}
-  // Auto-snapshot: if rows actually changed, save a new history entry
   const oldRows=JSON.stringify(p.rows);
   p.rows[i]={time,power,soc,grid};
-  const newRows=JSON.stringify(p.rows);
-  if(oldRows!==newRows){
+  if(oldRows!==JSON.stringify(p.rows)){
     const today=new Date().toISOString().slice(0,10);
-    // Update existing entry for today or add new one
     const last=touProfiles[touProfiles.length-1];
-    if(last.date===today){
-      last.rows=JSON.parse(newRows);
-    } else {
-      touProfiles.push({date:today,note:'Auto-saved',rows:JSON.parse(newRows)});
-      touProfiles.sort((a,b)=>a.date.localeCompare(b.date));
-    }
+    if(last.date===today){last.rows=JSON.parse(JSON.stringify(p.rows));}
+    else{touProfiles.push({date:today,note:'Auto-saved',rows:JSON.parse(JSON.stringify(p.rows))});touProfiles.sort((a,b)=>a.date.localeCompare(b.date));}
   }
   touEditIdx=-1;
   await saveDB();renderTou();
@@ -1203,21 +1210,19 @@ function renderCost(){
     const m=monthly.find(e=>e.date===date);
     const t=db.find(e=>e.date===date);
     // Priority: manual > monthly > telemetry — never combine
-    let consumed=0,purchased=0,prod=0,discharge=0;
+    let consumed, purchased;
     if(man&&man.consumption!=null){
       consumed=man.consumption;
       purchased=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
-      prod=m?m.production||0:0;discharge=m?m.discharge||0:0;
     } else if(m){
       consumed=m.consumption;
       purchased=m.purchased;
-      prod=m.production||0;discharge=m.discharge||0;
     } else if(t&&/^\d{4}-\d{2}-\d{2}$/.test(t.date)){
       consumed=t.avgLoad?t.avgLoad*24:0;
       purchased=t.gridImport||0;
     } else { return; }
     totalGridCost+=purchased*rate;
-    totalSavings+=calcSavings(consumed,purchased,rate,prod,discharge);
+    totalSavings+=calcSavings(consumed,purchased,rate);
   });
   // Add pre-solar adjusted savings from billing periods
   billingPeriods.forEach(function(b){
@@ -1278,9 +1283,7 @@ function renderDailyLog(){
     const d=getDataForDate(date);
     const prod=d.prod||0;const consumed=d.consum||0;const grid=d.grid||0;
     const rate=getRateForDate(date);
-    const mx2=monthly.find(e=>e.date===date);
-    const discharge2=mx2?mx2.discharge||0:0;
-    const saved=calcSavings(consumed,grid,rate,prod||0,discharge2);
+    const saved=calcSavings(consumed,grid,rate);
     totConsumed+=consumed;totGrid+=grid;totSaved+=saved;
     const mx=monthly.find(e=>e.date===date);const tx=db.find(e=>e.date===date);
     const w=mx?classifyWeatherMonthly(mx):(tx?classifyWeather(tx):'unknown');
@@ -1404,7 +1407,7 @@ function getChartData(){
     if(groups[key]){
       groups[key].consumed+=consumed;
       groups[key].grid+=grid;
-      groups[key].savings+=calcSavings(consumed,grid,rate,prodVal||0,dischargeVal||0);
+      groups[key].savings+=calcSavings(consumed,grid,rate);
       groups[key].gridCost+=grid*rate;
     }
   });
@@ -1500,7 +1503,7 @@ function generateExport(range){
   const touStr=p?(p.rows||[]).map((r,i)=>'  Row '+(i+1)+': '+r.time+' | Power: '+r.power+'W | Min SOC: '+r.soc+'% | Grid: '+(r.grid?'Yes':'No')).join('\n'):'  No TOU profile logged.';
   const touHist=touProfiles.map((pr,i)=>'  '+pr.date+(i===touProfiles.length-1?' [ACTIVE]':'')+': '+(pr.note||'')).join('\n');
   const billStr=billingPeriods.map(b=>'  '+b.start+' to '+b.end+': P'+b.rate+'/kWh | Bill P'+b.amount+' | DEYE grid P'+b.deyeCost).join('\n');
-  const mLines=filteredM.slice(-30).map(e=>{const w=classifyWeatherMonthly(e);const rate=getRateForDate(e.date);const saved=calcSavings(e.consumption,e.purchased,rate,e.production||0,e.discharge||0);return'  '+e.date+' ['+w.toUpperCase()+']: Prod '+e.production+'kWh, Used '+e.consumption+'kWh, Grid '+e.purchased+'kWh, Saved P'+saved.toFixed(0)+' (rate P'+rate+'/kWh)';}).join('\n');
+  const mLines=filteredM.slice(-30).map(e=>{const w=classifyWeatherMonthly(e);const rate=getRateForDate(e.date);const saved=calcSavings(e.consumption,e.purchased,rate);return'  '+e.date+' ['+w.toUpperCase()+']: Prod '+e.production+'kWh, Used '+e.consumption+'kWh, Grid '+e.purchased+'kWh, Saved P'+saved.toFixed(0)+' (rate P'+rate+'/kWh)';}).join('\n');
   const dbLines=filteredDB.filter(e=>!filteredM.find(m=>m.date===e.date)).slice(-15).map(e=>{const w=classifyWeather(e);return'  '+e.date+' ['+w.toUpperCase()+']: PV peak '+e.peakPV+'kW@'+e.pvPeakHour+', SOC '+e.minSOC+'-'+e.maxSOC+'% (floor '+e.minSOCTime+'), grid '+e.gridImport+'kWh, rows '+( e._rowCount||'?');}).join('\n');
   const avgGrid=filteredDB.length?(filteredDB.reduce((a,e)=>a+e.gridImport,0)/filteredDB.length).toFixed(2):'N/A';
 
