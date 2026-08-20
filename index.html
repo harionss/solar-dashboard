@@ -1079,13 +1079,25 @@ async function saveTouRow(i){
   const soc=parseInt(document.getElementById('editSoc').value);
   const grid=document.getElementById('editGrid').checked;
   if(!time||isNaN(power)||isNaN(soc)){alert('Fill in all fields.');return;}
-  const oldRows=JSON.stringify(p.rows);
+  const old=p.rows[i];
+  // Build meaningful change description
+  const changes=[];
+  if(old.time!==time)changes.push('time '+old.time+'→'+time);
+  if(old.power!==power)changes.push('power '+old.power+'W→'+power+'W');
+  if(old.soc!==soc)changes.push('SOC '+old.soc+'%→'+soc+'%');
+  if(old.grid!==grid)changes.push('grid '+(old.grid?'Yes':'No')+'→'+(grid?'Yes':'No'));
   p.rows[i]={time,power,soc,grid};
-  if(oldRows!==JSON.stringify(p.rows)){
+  if(changes.length){
+    const note='Row '+(i+1)+': '+changes.join(', ');
     const today=new Date().toISOString().slice(0,10);
     const last=touProfiles[touProfiles.length-1];
-    if(last.date===today){last.rows=JSON.parse(JSON.stringify(p.rows));}
-    else{touProfiles.push({date:today,note:'Auto-saved',rows:JSON.parse(JSON.stringify(p.rows))});touProfiles.sort((a,b)=>a.date.localeCompare(b.date));}
+    if(last.date===today){
+      last.note=(last.note&&!last.note.startsWith('Row')?last.note+' | ':'')+note;
+      last.rows=JSON.parse(JSON.stringify(p.rows));
+    } else {
+      touProfiles.push({date:today,note,rows:JSON.parse(JSON.stringify(p.rows))});
+      touProfiles.sort((a,b)=>a.date.localeCompare(b.date));
+    }
   }
   touEditIdx=-1;
   await saveDB();renderTou();
@@ -1263,21 +1275,32 @@ function renderDailyLog(){
     const man=manualEntries.find(e=>e.date===date);
     const m=monthly.find(e=>e.date===date);
     const t=db.find(e=>e.date===date);
-    // Priority: manual > monthly > telemetry — never mix sources
-    let prod,consum,grid,src;
+    // Priority: manual > monthly > telemetry — NEVER mix sources
     if(man&&man.consumption!=null){
-      prod=man.production!=null?man.production:(m?m.production:(t?t.pvTotal||0:0));
-      consum=man.consumption;
-      grid=man.grid!=null?man.grid:(m?m.purchased:(t?t.gridImport||0:0));
-      src='manual';
-    } else if(m){
-      prod=m.production;consum=m.consumption;grid=m.purchased;src='monthly';
-    } else if(t){
-      prod=t.pvTotal||0;consum=t.avgLoad?+(t.avgLoad*24).toFixed(1):0;grid=t.gridImport||0;src='telemetry';
-    } else {
-      return{prod:0,consum:null,grid:0,src:'none',hasData:false};
+      return{
+        prod:man.production!=null?man.production:(m?m.production||0:(t?t.pvTotal||0:0)),
+        consum:man.consumption,
+        grid:man.grid!=null?man.grid:(m?m.purchased||0:(t?t.gridImport||0:0)),
+        charge:man.charge!=null?man.charge:(m?m.charge||0:0),
+        discharge:man.discharge!=null?man.discharge:(m?m.discharge||0:0),
+        src:'manual',hasData:true
+      };
     }
-    return{prod,consum,grid,src,hasData:true};
+    if(m){
+      return{
+        prod:m.production||0,consum:m.consumption||0,grid:m.purchased||0,
+        charge:m.charge||0,discharge:m.discharge||0,
+        src:'monthly',hasData:true
+      };
+    }
+    if(t){
+      return{
+        prod:t.pvTotal||0,consum:t.avgLoad?+(t.avgLoad*24).toFixed(1):0,
+        grid:t.gridImport||0,charge:t.battCharge||0,discharge:t.battDischarge||0,
+        src:'telemetry',hasData:true
+      };
+    }
+    return{prod:0,consum:null,grid:0,charge:0,discharge:0,src:'none',hasData:false};
   }
     document.getElementById('dailyRows').innerHTML=periodDates.map(function(date){
     const d=getDataForDate(date);
